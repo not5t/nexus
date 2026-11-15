@@ -28,6 +28,9 @@
       <a class="nav-item active" href="#overview">
         ◈ Overview
       </a>
+      <a class="nav-item" href="#wallet">
+        ◆ Wallet
+      </a>
       <a class="nav-item" href="#economy">
         ◉ Economy
       </a>
@@ -35,7 +38,7 @@
 
     <div class="sidebar-bottom">
       <span class="status-dot"></span>
-      NEXUS v0.4.0
+      NEXUS v0.5.0
     </div>
   </aside>
 
@@ -100,6 +103,24 @@
       </article>
     </section>
 
+    <section class="panel" id="wallet">
+      <div class="panel-heading">
+        <div>
+          <h3>My Wallet</h3>
+          <p class="muted">Ví Token Cá của bạn</p>
+        </div>
+        <span class="tag" id="wallet-tag">LOGIN</span>
+      </div>
+
+      <div id="wallet-content">
+        <div class="empty-state">
+          <span>🔐</span>
+          <h3>Đăng nhập để xem ví</h3>
+          <p>Đăng nhập bằng Discord để xem số dư của bạn.</p>
+        </div>
+      </div>
+    </section>
+
     <section class="panel" id="economy">
       <div class="panel-heading">
         <div>
@@ -129,5 +150,6 @@
   <script src="js/app.js"></script>
   <script src="js/auth.js"></script>
   <script src="js/dashboard.js"></script>
+  <script src="js/wallet.js"></script>
 </body>
 </html>
