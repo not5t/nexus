@@ -1,0 +1,16 @@
+{
+  "name": "nexus-bot",
+  "version": "0.3.0",
+  "description": "NEXUS - Discord economy bot (Token Cá)",
+  "main": "index.js",
+  "scripts": {
+    "start": "node --env-file-if-exists=.env index.js",
+    "deploy": "node --env-file-if-exists=.env deploy.js"
+  },
+  "engines": {
+    "node": ">=24.17.0"
+  },
+  "dependencies": {
+    "discord.js": "^14.28.0"
+  }
+}
