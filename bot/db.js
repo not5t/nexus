@@ -88,4 +88,35 @@ function claimReward(userId, kind, amount, note) {
   });
 }
 
-module.exports = { db, getBalance, claimReward };
+// Số liệu tổng hợp cho dashboard (không chứa thông tin cá nhân)
+function getStats() {
+  const users = db
+    .prepare("SELECT COUNT(*) AS players, COALESCE(SUM(balance), 0) AS supply FROM users")
+    .get();
+
+  const since = Date.now() - 24 * 60 * 60 * 1000;
+  const tx = db
+    .prepare(
+      `SELECT COUNT(*) AS total,
+              COALESCE(SUM(CASE WHEN created_at >= ? THEN 1 ELSE 0 END), 0) AS last24h
+       FROM transactions`
+    )
+    .get(since);
+
+  return {
+    players: users.players,
+    supply: users.supply,
+    transactions: tx.total,
+    transactions24h: tx.last24h,
+  };
+}
+
+function getRecentTransactions(limit = 10) {
+  return db
+    .prepare(
+      "SELECT user_id, amount, type, created_at FROM transactions ORDER BY id DESC LIMIT ?"
+    )
+    .all(limit);
+}
+
+module.exports = { db, getBalance, claimReward, getStats, getRecentTransactions };

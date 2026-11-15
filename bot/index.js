@@ -1,5 +1,6 @@
 const { Client, Collection, Events, GatewayIntentBits, MessageFlags } = require("discord.js");
 const commands = require("./commands");
+const { startApi } = require("./api");
 
 if (!process.env.DISCORD_TOKEN) {
   console.error("❌ Thiếu DISCORD_TOKEN. Hãy tạo file .env từ env.example.");
@@ -16,6 +17,7 @@ for (const command of commands) {
 
 client.once(Events.ClientReady, readyClient => {
   console.log(`✅ NEXUS đã online: ${readyClient.user.tag}`);
+  startApi(readyClient);
 });
 
 client.on(Events.InteractionCreate, async interaction => {
