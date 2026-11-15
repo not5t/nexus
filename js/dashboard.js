@@ -1,0 +1,219 @@
+// NEXUS v0.4 - Dashboard đọc số liệu thật từ API của bot
+const API_STORAGE_KEY = "nexus_api_url";
+// Khi có hosting thật, điền địa chỉ cố định vào đây (vd: "https://api.tenmien.com")
+const DEFAULT_API_URL = "";
+const REFRESH_MS = 30000;
+const FETCH_TIMEOUT_MS = 8000;
+
+const ui = {
+  status: document.getElementById("stat-status"),
+  statusNote: document.getElementById("stat-status-note"),
+  players: document.getElementById("stat-players"),
+  playersNote: document.getElementById("players-note"),
+  supply: document.getElementById("stat-supply"),
+  supplyNote: document.getElementById("supply-note"),
+  tx: document.getElementById("stat-tx"),
+  txNote: document.getElementById("tx-note"),
+  economy: document.getElementById("economy-content"),
+  economyTag: document.getElementById("economy-tag"),
+  updatedAt: document.getElementById("updated-at"),
+  apiBtn: document.getElementById("api-btn"),
+};
+
+const TYPE_INFO = {
+  daily: { icon: "🎁", label: "Điểm danh" },
+  work: { icon: "🎣", label: "Làm việc" },
+};
+
+const fmt = n => (Number(n) || 0).toLocaleString("vi-VN");
+
+function timeAgo(ts) {
+  const s = Math.max(0, Math.floor((Date.now() - ts) / 1000));
+  if (s < 60) return "vừa xong";
+  const m = Math.floor(s / 60);
+  if (m < 60) return m + " phút trước";
+  const h = Math.floor(m / 60);
+  if (h < 24) return h + " giờ trước";
+  return Math.floor(h / 24) + " ngày trước";
+}
+
+// ---------- Địa chỉ API ----------
+
+function normalizeApiUrl(input) {
+  try {
+    const url = new URL(String(input).trim());
+    const isLocal = url.hostname === "localhost" || url.hostname === "127.0.0.1";
+    if (url.protocol !== "https:" && !(isLocal && url.protocol === "http:")) return null;
+    return url.origin;
+  } catch {
+    return null;
+  }
+}
+
+function getApiUrl() {
+  try {
+    const saved = normalizeApiUrl(localStorage.getItem(API_STORAGE_KEY) || "");
+    if (saved) return saved;
+  } catch {}
+  return normalizeApiUrl(DEFAULT_API_URL) || "";
+}
+
+function askApiUrl() {
+  const input = prompt("Dán địa chỉ API của bot (bắt đầu bằng https://):", getApiUrl());
+  if (input === null) return;
+
+  const url = normalizeApiUrl(input);
+  if (!url) {
+    alert("Địa chỉ không hợp lệ. Cần bắt đầu bằng https://");
+    return;
+  }
+
+  try {
+    localStorage.setItem(API_STORAGE_KEY, url);
+  } catch {}
+  refresh();
+}
+
+// ---------- Hiển thị ----------
+
+function emptyState(icon, title, text) {
+  const box = document.createElement("div");
+  box.className = "empty-state";
+
+  const i = document.createElement("span");
+  i.textContent = icon;
+  const h = document.createElement("h3");
+  h.textContent = title;
+  const p = document.createElement("p");
+  p.textContent = text;
+
+  box.appendChild(i);
+  box.appendChild(h);
+  box.appendChild(p);
+  ui.economy.replaceChildren(box);
+}
+
+function setStatus(text, className, note) {
+  ui.status.textContent = text;
+  ui.status.className = className;
+  ui.statusNote.textContent = note;
+}
+
+function renderRecent(list) {
+  if (!Array.isArray(list) || list.length === 0) {
+    emptyState("🌊", "Chưa có giao dịch nào", "Thử gõ /daily hoặc /work trong server của bạn.");
+    return;
+  }
+
+  const ul = document.createElement("ul");
+  ul.className = "tx-list";
+
+  for (const tx of list) {
+    const info = TYPE_INFO[tx.type] || { icon: "⇄", label: String(tx.type) };
+
+    const li = document.createElement("li");
+    li.className = "tx-item";
+
+    const icon = document.createElement("span");
+    icon.className = "tx-icon";
+    icon.textContent = info.icon;
+
+    const main = document.createElement("div");
+    main.className = "tx-main";
+    const title = document.createElement("span");
+    title.textContent = info.label + " · " + tx.user;
+    const when = document.createElement("small");
+    when.textContent = timeAgo(tx.at);
+    main.appendChild(title);
+    main.appendChild(when);
+
+    const amount = document.createElement("span");
+    amount.className = "tx-amount";
+    amount.textContent = (tx.amount >= 0 ? "+" : "") + fmt(tx.amount) + " 🪙";
+
+    li.appendChild(icon);
+    li.appendChild(main);
+    li.appendChild(amount);
+    ul.appendChild(li);
+  }
+
+  ui.economy.replaceChildren(ul);
+}
+
+function renderOnline(data) {
+  const bot = data.bot || {};
+  const eco = data.economy || {};
+
+  const ping = bot.pingMs > 0 ? " · " + bot.pingMs + "ms" : "";
+  setStatus(bot.online ? "ONLINE" : "OFFLINE", bot.online ? "status-online" : "status-offline", (bot.tag || "NEXUS") + ping);
+
+  ui.players.textContent = fmt(eco.players);
+  ui.playersNote.textContent = "Người chơi đã có ví";
+  ui.supply.textContent = fmt(eco.supply);
+  ui.supplyNote.textContent = String(eco.currency || "Token Cá 🪙");
+  ui.tx.textContent = fmt(eco.transactions);
+  ui.txNote.textContent = "24 giờ qua: " + fmt(eco.transactions24h);
+
+  ui.economyTag.textContent = "LIVE";
+  renderRecent(data.recent);
+  ui.updatedAt.textContent = "Cập nhật lúc " + new Date().toLocaleTimeString("vi-VN");
+}
+
+function renderOffline() {
+  setStatus("OFFLINE", "status-offline", "Không kết nối được API");
+  for (const el of [ui.players, ui.supply, ui.tx]) el.textContent = "—";
+  ui.economyTag.textContent = "OFFLINE";
+  ui.updatedAt.textContent = "";
+  emptyState(
+    "🔌",
+    "Không kết nối được bot",
+    "Kiểm tra bot và tunnel đang chạy, rồi bấm nút 🔌 để nhập lại địa chỉ API."
+  );
+}
+
+function renderNoApi() {
+  ui.statusNote.textContent = "Bấm 🔌 để nhập địa chỉ API";
+}
+
+// ---------- Tải dữ liệu ----------
+
+async function fetchStats(apiUrl) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+  try {
+    const res = await fetch(apiUrl + "/api/stats", { signal: controller.signal, cache: "no-store" });
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    return await res.json();
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+let busy = false;
+
+async function refresh() {
+  const apiUrl = getApiUrl();
+  if (!apiUrl) return renderNoApi();
+  if (busy) return;
+
+  busy = true;
+  try {
+    renderOnline(await fetchStats(apiUrl));
+  } catch (err) {
+    console.warn("Không tải được số liệu:", err);
+    renderOffline();
+  } finally {
+    busy = false;
+  }
+}
+
+ui.apiBtn.addEventListener("click", askApiUrl);
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden) refresh();
+});
+setInterval(() => {
+  if (!document.hidden) refresh();
+}, REFRESH_MS);
+
+refresh();
+          
