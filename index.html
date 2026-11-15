@@ -1,0 +1,142 @@
+
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport"
+    content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#071522">
+  <title>NEXUS - Economy Dashboard</title>
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/auth.css">
+</head>
+<body>
+
+  <aside class="sidebar">
+    <div class="brand">
+      <span class="brand-icon">🌊</span>
+      <div>
+        <h2>NEXUS</h2>
+        <small>ECONOMY SYSTEM</small>
+      </div>
+    </div>
+
+    <p class="nav-label">MAIN MENU</p>
+
+    <nav>
+      <a class="nav-item active" href="#overview">
+        ◈ Overview
+      </a>
+      <a class="nav-item" href="#economy">
+        ◉ Economy
+      </a>
+      <a class="nav-item" href="#players">
+        ♙ Players
+      </a>
+      <a class="nav-item" href="#shop">
+        ◇ Shop
+      </a>
+      <a class="nav-item" href="#transactions">
+        ⇄ Transactions
+      </a>
+    </nav>
+
+    <p class="nav-label">PERSONAL</p>
+
+    <nav>
+      <a class="nav-item" href="#notes">▤ My Notes</a>
+      <a class="nav-item" href="#settings">⚙ Settings</a>
+    </nav>
+
+    <div class="sidebar-bottom">
+      <span class="status-dot"></span>
+      NEXUS v0.1.0
+    </div>
+  </aside>
+
+  <main class="main-content">
+    <header class="topbar">
+      <button id="menu-toggle" class="menu-btn"
+        aria-label="Mở menu">☰</button>
+
+      <div>
+        <small class="muted">DISCORD ECONOMY</small>
+        <h2>Overview</h2>
+      </div>
+
+      <div class="user-area">
+        <span class="avatar" id="user-avatar">🐟</span>
+        <div class="user-info">
+          <span id="user-name">Guest</span>
+          <small id="user-id" class="muted" hidden></small>
+        </div>
+        <button id="login-btn" class="btn">Đăng nhập Discord</button>
+        <button id="logout-btn" class="btn btn-ghost" hidden>Đăng xuất</button>
+      </div>
+    </header>
+
+    <section class="welcome">
+      <div>
+        <p class="eyebrow">WELCOME TO NEXUS</p>
+        <h1>Explore the Ocean.</h1>
+        <p class="muted">
+          Your economy, your ocean, your rules.
+        </p>
+      </div>
+      <div class="ocean-icon">🐠</div>
+    </section>
+
+    <section class="stats-grid">
+      <article class="stat-card">
+        <span>🤖 Bot Status</span>
+        <h2 class="demo-status">DEMO</h2>
+        <small>Chưa kết nối bot</small>
+      </article>
+
+      <article class="stat-card">
+        <span>👥 Players</span>
+        <h2>0</h2>
+        <small>Demo data</small>
+      </article>
+
+      <article class="stat-card">
+        <span>🐟 Total Supply</span>
+        <h2>0</h2>
+        <small>Vảy (tạm thời)</small>
+      </article>
+
+      <article class="stat-card">
+        <span>⇄ Transactions</span>
+        <h2>0</h2>
+        <small>Demo data</small>
+      </article>
+    </section>
+
+    <section class="panel" id="economy">
+      <div class="panel-heading">
+        <div>
+          <h3>Economy Overview</h3>
+          <p class="muted">System summary</p>
+        </div>
+        <span class="tag">PREVIEW</span>
+      </div>
+
+      <div class="empty-state">
+        <span>🌊</span>
+        <h3>The ocean is waiting.</h3>
+        <p>
+          Economy data will appear here
+          after the database is connected.
+        </p>
+      </div>
+    </section>
+
+    <footer>
+      NEXUS © 2026 · Fish Economy System
+    </footer>
+  </main>
+
+  <script src="js/app.js"></script>
+  <script src="js/auth.js"></script>
+</body>
+</html>
