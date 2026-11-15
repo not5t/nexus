@@ -1,10 +1,11 @@
-// NEXUS v0.2 - Đăng nhập Discord (OAuth2 implicit, chỉ để hiển thị)
+// NEXUS - Đăng nhập Discord (OAuth2 implicit, scope "identify")
 const CONFIG = {
   clientId: "1571569716126814399",
   redirectUri: "https://not5t.github.io/nexus/",
 };
 
 const USER_KEY = "nexus_user";
+const TOKEN_KEY = "nexus_token";
 const STATE_KEY = "nexus_oauth_state";
 
 const els = {
@@ -69,15 +70,36 @@ async function handleCallback() {
     if (!res.ok) throw new Error("HTTP " + res.status);
     const u = await res.json();
 
-    // Chỉ lưu thông tin hiển thị, không lưu token
     localStorage.setItem(USER_KEY, JSON.stringify({
       id: u.id,
       name: u.global_name || u.username,
       avatar: avatarUrl(u),
     }));
+
+    // Token chỉ có quyền "identify" (đọc tên/avatar/id), dùng để bot xác minh bạn là ai.
+    // Token tự hết hạn (~7 ngày) và bị xóa khi đăng xuất.
+    const expiresIn = Number(params.get("expires_in")) || 0;
+    localStorage.setItem(TOKEN_KEY, JSON.stringify({
+      token: token,
+      expiresAt: Date.now() + expiresIn * 1000,
+    }));
   } catch (err) {
     console.error("Đăng nhập Discord thất bại:", err);
   }
+}
+
+function getToken() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(TOKEN_KEY));
+    if (saved && saved.token && saved.expiresAt > Date.now() + 60000) return saved.token;
+  } catch {}
+  return null;
+}
+
+function clearToken() {
+  try {
+    localStorage.removeItem(TOKEN_KEY);
+  } catch {}
 }
 
 function loadUser() {
@@ -117,11 +139,13 @@ function render(user) {
 els.login.addEventListener("click", login);
 els.logout.addEventListener("click", () => {
   localStorage.removeItem(USER_KEY);
+  clearToken();
   render(null);
+  document.dispatchEvent(new Event("nexus:auth"));
 });
 
 (async () => {
   await handleCallback();
   render(loadUser());
+  document.dispatchEvent(new Event("nexus:auth"));
 })();
-    
