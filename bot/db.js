@@ -119,4 +119,36 @@ function getRecentTransactions(limit = 10) {
     .all(limit);
 }
 
-module.exports = { db, getBalance, claimReward, getStats, getRecentTransactions };
+// Ví cá nhân: chỉ dữ liệu của chính người đó
+function getWallet(userId, limit = 20) {
+  const now = Date.now();
+  const user = db
+    .prepare("SELECT balance, last_daily, last_work FROM users WHERE id = ?")
+    .get(userId);
+  const players = db.prepare("SELECT COUNT(*) AS n FROM users").get().n;
+  const history = db
+    .prepare(
+      "SELECT type, amount, note, created_at AS at FROM transactions WHERE user_id = ? ORDER BY id DESC LIMIT ?"
+    )
+    .all(userId, limit);
+
+  if (!user) {
+    return { balance: 0, rank: null, players, dailyReadyInMs: 0, workReadyInMs: 0, history };
+  }
+
+  const pos = db
+    .prepare("SELECT COUNT(*) + 1 AS pos FROM users WHERE balance > ?")
+    .get(user.balance).pos;
+
+  return {
+    balance: user.balance,
+    rank: pos,
+    players,
+    dailyReadyInMs: Math.max(0, user.last_daily + config.daily.cooldownMs - now),
+    workReadyInMs: Math.max(0, user.last_work + config.work.cooldownMs - now),
+    history,
+  };
+}
+
+module.exports = { db, getBalance, claimReward, getStats, getRecentTransactions, getWallet };
+                  
