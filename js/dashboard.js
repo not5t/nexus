@@ -72,6 +72,7 @@ function askApiUrl() {
     localStorage.setItem(API_STORAGE_KEY, url);
   } catch {}
   refresh();
+  document.dispatchEvent(new Event("nexus:api"));
 }
 
 // ---------- Hiển thị ----------
@@ -216,4 +217,3 @@ setInterval(() => {
 }, REFRESH_MS);
 
 refresh();
-          
