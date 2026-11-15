@@ -9,6 +9,7 @@
   <title>NEXUS - Economy Dashboard</title>
   <link rel="stylesheet" href="css/style.css">
   <link rel="stylesheet" href="css/auth.css">
+  <link rel="stylesheet" href="css/dashboard.css">
 </head>
 <body>
 
@@ -34,7 +35,7 @@
 
     <div class="sidebar-bottom">
       <span class="status-dot"></span>
-      NEXUS v0.3.0
+      NEXUS v0.4.0
     </div>
   </aside>
 
@@ -73,26 +74,29 @@
     <section class="stats-grid">
       <article class="stat-card">
         <span>🤖 Bot Status</span>
-        <h2 class="demo-status">DEMO</h2>
-        <small>Chưa kết nối bot</small>
+        <h2 id="stat-status" class="demo-status">DEMO</h2>
+        <small id="stat-status-note">Chưa kết nối bot</small>
+        <div>
+          <button id="api-btn" class="btn btn-ghost btn-small">🔌 Địa chỉ API</button>
+        </div>
       </article>
 
       <article class="stat-card">
         <span>👥 Players</span>
-        <h2>0</h2>
-        <small>Demo data</small>
+        <h2 id="stat-players">0</h2>
+        <small id="players-note">Demo data</small>
       </article>
 
       <article class="stat-card">
         <span>🐟 Total Supply</span>
-        <h2>0</h2>
-        <small>Token Cá 🪙</small>
+        <h2 id="stat-supply">0</h2>
+        <small id="supply-note">Token Cá 🪙</small>
       </article>
 
       <article class="stat-card">
         <span>⇄ Transactions</span>
-        <h2>0</h2>
-        <small>Demo data</small>
+        <h2 id="stat-tx">0</h2>
+        <small id="tx-note">Demo data</small>
       </article>
     </section>
 
@@ -102,17 +106,19 @@
           <h3>Economy Overview</h3>
           <p class="muted">System summary</p>
         </div>
-        <span class="tag">PREVIEW</span>
+        <span class="tag" id="economy-tag">PREVIEW</span>
       </div>
 
-      <div class="empty-state">
-        <span>🌊</span>
-        <h3>The ocean is waiting.</h3>
-        <p>
-          Economy data will appear here
-          after the database is connected.
-        </p>
+      <div id="economy-content">
+        <div class="empty-state">
+          <span>🌊</span>
+          <h3>The ocean is waiting.</h3>
+          <p>
+            Kết nối bot để xem giao dịch gần đây.
+          </p>
+        </div>
       </div>
+      <p class="muted updated" id="updated-at"></p>
     </section>
 
     <footer>
@@ -122,5 +128,6 @@
 
   <script src="js/app.js"></script>
   <script src="js/auth.js"></script>
+  <script src="js/dashboard.js"></script>
 </body>
 </html>
