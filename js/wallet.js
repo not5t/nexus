@@ -1,196 +1,128 @@
-// NEXUS v0.5 - Ví cá nhân (cần đăng nhập Discord + địa chỉ API của bot)
-// Dùng lại các hàm từ auth.js (loadUser, getToken, clearToken, login) và dashboard.js (getApiUrl, fmt, timeAgo, TYPE_INFO)
-const walletUi = {
-  box: document.getElementById("wallet-content"),
-  tag: document.getElementById("wallet-tag"),
-};
+/**
+ * NEXUS - Wallet Frontend Script (js/wallet.js)
+ * Quản lý hiển thị số dư, thông tin ví và cơ chế vượt link nhận Token Cá miễn phí.
+ */
 
-function walletMessage(icon, title, text, tag, actionLabel, onAction) {
-  const box = document.createElement("div");
-  box.className = "empty-state";
+document.addEventListener('DOMContentLoaded', async () => {
+    // 1. Tải thông tin ví của người dùng khi load trang
+    await loadWalletInfo();
+    
+    // 2. Gắn sự kiện cho các nút bấm kiếm token
+    setupWalletEvents();
+});
 
-  const i = document.createElement("span");
-  i.textContent = icon;
-  const h = document.createElement("h3");
-  h.textContent = title;
-  const p = document.createElement("p");
-  p.textContent = text;
-  box.appendChild(i);
-  box.appendChild(h);
-  box.appendChild(p);
+/**
+ * Lấy thông tin tài khoản và số dư từ Backend
+ */
+async function loadWalletInfo() {
+    try {
+        const response = await fetch('/api/user/me', {
+            method: 'GET',
+            credentials: 'include' // Đảm bảo gửi kèm cookie session/Discord Auth
+        });
+        
+        const data = await response.json();
 
-  if (actionLabel) {
-    const btn = document.createElement("button");
-    btn.className = "btn";
-    btn.textContent = actionLabel;
-    btn.addEventListener("click", onAction);
-    box.appendChild(btn);
-  }
+        if (data.success && data.user) {
+            // Lưu lại Discord ID để dùng khi tạo link vượt
+            window.nexusUserId = data.user.user_id;
 
-  walletUi.tag.textContent = tag;
-  walletUi.box.replaceChildren(box);
-}
+            // Cập nhật giao diện HTML (đảm bảo các element này có id tương ứng trong wallet.html)
+            const tokenBalanceEl = document.getElementById('token-balance');
+            const linkCountEl = document.getElementById('link-count');
+            const usernameEl = document.getElementById('username');
+            const avatarEl = document.getElementById('user-avatar');
 
-function formatWait(ms) {
-  if (!(ms > 0)) return "Sẵn sàng ✅";
-  const totalMin = Math.ceil(ms / 60000);
-  const h = Math.floor(totalMin / 60);
-  const m = totalMin % 60;
-  return "Còn " + (h > 0 ? h + " giờ " : "") + m + " phút";
-}
-
-function cooldownCard(title, ms) {
-  const card = document.createElement("div");
-  card.className = "wallet-cd";
-  const t = document.createElement("small");
-  t.textContent = title;
-  const v = document.createElement("strong");
-  v.textContent = formatWait(ms);
-  card.appendChild(t);
-  card.appendChild(v);
-  return card;
-}
-
-function renderWallet(data) {
-  const wrap = document.createElement("div");
-
-  const hero = document.createElement("div");
-  hero.className = "wallet-hero";
-  const label = document.createElement("p");
-  label.className = "wallet-label";
-  label.textContent = "SỐ DƯ";
-  const balance = document.createElement("h2");
-  balance.className = "wallet-balance";
-  balance.textContent = fmt(data.balance) + " " + String(data.currency || "Token Cá 🪙");
-  const rank = document.createElement("p");
-  rank.className = "muted";
-  rank.textContent = data.rank
-    ? "Hạng #" + data.rank + " / " + data.players + " người chơi"
-    : "Bạn chưa có ví. Gõ /daily trong server để bắt đầu!";
-  hero.appendChild(label);
-  hero.appendChild(balance);
-  hero.appendChild(rank);
-  wrap.appendChild(hero);
-
-  const cds = document.createElement("div");
-  cds.className = "wallet-cooldowns";
-  cds.appendChild(cooldownCard("🎁 /daily", data.dailyReadyInMs));
-  cds.appendChild(cooldownCard("🎣 /work", data.workReadyInMs));
-  wrap.appendChild(cds);
-
-  const sub = document.createElement("h4");
-  sub.className = "wallet-subtitle";
-  sub.textContent = "Lịch sử của bạn";
-  wrap.appendChild(sub);
-
-  const history = Array.isArray(data.history) ? data.history : [];
-  if (history.length === 0) {
-    const none = document.createElement("p");
-    none.className = "muted";
-    none.textContent = "Chưa có giao dịch nào.";
-    wrap.appendChild(none);
-  } else {
-    const ul = document.createElement("ul");
-    ul.className = "tx-list";
-    for (const tx of history) {
-      const info = TYPE_INFO[tx.type] || { icon: "⇄", label: String(tx.type) };
-
-      const li = document.createElement("li");
-      li.className = "tx-item";
-      const icon = document.createElement("span");
-      icon.className = "tx-icon";
-      icon.textContent = info.icon;
-
-      const main = document.createElement("div");
-      main.className = "tx-main";
-      const title = document.createElement("span");
-      title.textContent = tx.note || info.label;
-      const when = document.createElement("small");
-      when.textContent = info.label + " · " + timeAgo(tx.at);
-      main.appendChild(title);
-      main.appendChild(when);
-
-      const amount = document.createElement("span");
-      amount.className = "tx-amount";
-      amount.textContent = (tx.amount >= 0 ? "+" : "") + fmt(tx.amount) + " 🪙";
-
-      li.appendChild(icon);
-      li.appendChild(main);
-      li.appendChild(amount);
-      ul.appendChild(li);
+            if (tokenBalanceEl) tokenBalanceEl.textContent = (data.user.tokens || 0).toLocaleString();
+            if (linkCountEl) linkCountEl.textContent = (data.user.link_count || 0).toLocaleString();
+            if (usernameEl) usernameEl.textContent = data.user.username || 'Thành viên NEXUS';
+            if (avatarEl && data.user.avatar) {
+                avatarEl.src = `https://cdn.discordapp.com/avatars/${data.user.user_id}/${data.user.avatar}.png`;
+            }
+        } else {
+            console.warn('Người dùng chưa đăng nhập hoặc phiên đăng nhập hết hạn.');
+            // Nếu chưa đăng nhập, hiển thị giá trị mặc định hoặc gợi ý đăng nhập
+            const tokenBalanceEl = document.getElementById('token-balance');
+            if (tokenBalanceEl) tokenBalanceEl.textContent = '0';
+        }
+    } catch (error) {
+        console.error('Lỗi khi tải thông tin ví:', error);
     }
-    wrap.appendChild(ul);
-  }
-
-  walletUi.tag.textContent = "TRỰC TIẾP";
-  walletUi.box.replaceChildren(wrap);
 }
 
-async function fetchWallet(apiUrl, token) {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 8000);
-  try {
-    const res = await fetch(apiUrl + "/api/me", {
-      headers: { Authorization: "Bearer " + token },
-      signal: controller.signal,
-      cache: "no-store",
-    });
-    if (res.status === 401 || res.status === 403) {
-      const err = new Error("auth " + res.status);
-      err.code = "auth";
-      throw err;
+/**
+ * Gắn sự kiện click cho các nút "Kiếm Token Cá"
+ */
+function setupWalletEvents() {
+    const btnLink4m = document.getElementById('btn-link4m');
+    const btnLinkvertise = document.getElementById('btn-linkvertise');
+
+    if (btnLink4m) {
+        btnLink4m.addEventListener('click', () => requestTokenLink('link4m'));
     }
-    if (!res.ok) throw new Error("HTTP " + res.status);
-    return await res.json();
-  } finally {
-    clearTimeout(timer);
-  }
-}
 
-const showLoginNeeded = () =>
-  walletMessage("🔐", "Đăng nhập để xem ví", "Đăng nhập bằng Discord để xem số dư và lịch sử giao dịch của bạn.", "ĐĂNG NHẬP", "Đăng nhập Discord", () => login());
-
-const showReloginNeeded = () =>
-  walletMessage("🔄", "Cần đăng nhập lại", "Phiên đăng nhập đã hết hạn hoặc chưa được lưu. Đăng nhập lại chỉ mất vài giây.", "ĐĂNG NHẬP", "Đăng nhập lại", () => login());
-
-const showNoApi = () =>
-  walletMessage("🔌", "Chưa kết nối bot", "Vào trang Tổng quan và bấm nút 🔌 Kết nối API để nhập địa chỉ API.", "MẤT KẾT NỐI");
-
-const showWalletOffline = () =>
-  walletMessage("🔌", "Không kết nối được bot", "Kiểm tra lại địa chỉ API, rồi thử lại sau ít phút.", "MẤT KẾT NỐI");
-
-let walletBusy = false;
-
-async function refreshWallet() {
-  if (!loadUser()) return showLoginNeeded();
-
-  const token = getToken();
-  if (!token) return showReloginNeeded();
-
-  const apiUrl = getApiUrl();
-  if (!apiUrl) return showNoApi();
-
-  if (walletBusy) return;
-  walletBusy = true;
-  try {
-    renderWallet(await fetchWallet(apiUrl, token));
-  } catch (err) {
-    if (err.code === "auth") {
-      clearToken();
-      showReloginNeeded();
-    } else {
-      console.warn("Không tải được ví:", err);
-      showWalletOffline();
+    if (btnLinkvertise) {
+        btnLinkvertise.addEventListener('click', () => requestTokenLink('linkvertise'));
     }
-  } finally {
-    walletBusy = false;
-  }
 }
 
-document.addEventListener("nexus:auth", refreshWallet);
-document.addEventListener("nexus:api", refreshWallet);
-setInterval(() => {
-  if (!document.hidden) refreshWallet();
-}, 30000);
+/**
+ * Gửi yêu cầu tạo phiên link rút gọn tới Server
+ * @param {string} provider - 'link4m' hoặc 'linkvertise'
+ */
+async function requestTokenLink(provider) {
+    const userId = window.nexusUserId;
 
-refreshWallet();
+    // Kiểm tra xem user đã đăng nhập web chưa
+    if (!userId) {
+        alert('⚠️ Vui lòng đăng nhập bằng tài khoản Discord trên trang web trước khi nhận Token Cá miễn phí!');
+        window.location.href = '/auth/discord'; // Đường dẫn đăng nhập Discord OAuth2 của bạn
+        return;
+    }
+
+    // Lấy nút bấm tương ứng để hiệu ứng loading
+    const buttonId = provider === 'link4m' ? 'btn-link4m' : 'btn-linkvertise';
+    const btnElement = document.getElementById(buttonId);
+    let originalText = '';
+
+    if (btnElement) {
+        originalText = btnElement.innerHTML;
+        btnElement.disabled = true;
+        btnElement.innerHTML = `⏳ Đang tạo liên kết ${provider.toUpperCase()}...`;
+    }
+
+    try {
+        // Gọi API backend đã tích hợp
+        const response = await fetch('/api/link/generate', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ userId, provider })
+        });
+
+        const data = await response.json();
+
+        if (data.success && data.shortUrl) {
+            // Chuyển hướng người dùng sang trang vượt link
+            window.location.href = data.shortUrl;
+        } else {
+            alert('❌ Không thể tạo liên kết: ' + (data.error || 'Lỗi hệ thống.'));
+            resetButton(btnElement, originalText);
+        }
+    } catch (error) {
+        console.error('Lỗi kết nối:', error);
+        alert('❌ Lỗi kết nối tới máy chủ NEXUS. Vui lòng thử lại sau.');
+        resetButton(btnElement, originalText);
+    }
+}
+
+/**
+ * Khôi phục trạng thái nút bấm nếu có lỗi
+ */
+function resetButton(btnElement, originalText) {
+    if (btnElement) {
+        btnElement.disabled = false;
+        btnElement.innerHTML = originalText;
+    }
+}
