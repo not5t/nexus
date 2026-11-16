@@ -2,6 +2,7 @@
 const ROUTES = {
   "tong-quan": { title: "Tổng quan", eyebrow: "BẢNG ĐIỀU KHIỂN" },
   "vi": { title: "Ví của tôi", eyebrow: "TÀI KHOẢN" },
+  "kiem-token": { title: "Kiếm Token Cá", eyebrow: "PHẦN THƯỞNG" },
   "xep-hang": { title: "Bảng xếp hạng", eyebrow: "CỘNG ĐỒNG" },
   "kinh-te": { title: "Kinh tế", eyebrow: "HỆ THỐNG" },
 };
