@@ -24,13 +24,14 @@
     <nav>
       <a class="nav-item" href="#tong-quan" data-route="tong-quan"><span>🏠</span> Tổng quan</a>
       <a class="nav-item" href="#vi" data-route="vi"><span>👛</span> Ví của tôi</a>
+      <a class="nav-item" href="#kiem-token" data-route="kiem-token"><span>💰</span> Kiếm Token Cá</a>
       <a class="nav-item" href="#xep-hang" data-route="xep-hang"><span>🏆</span> Bảng xếp hạng</a>
       <a class="nav-item" href="#kinh-te" data-route="kinh-te"><span>📊</span> Kinh tế</a>
     </nav>
 
     <div class="sidebar-bottom">
       <span class="status-dot"></span>
-      NEXUS v0.6b
+      NEXUS v0.6c
     </div>
   </aside>
 
@@ -126,6 +127,25 @@
       </section>
     </div>
 
+    <!-- Trang: Kiếm Token Cá -->
+    <div class="page" id="page-kiem-token" hidden>
+      <section class="panel">
+        <div class="panel-heading">
+          <div>
+            <h3>Kiếm Token Cá</h3>
+            <p class="muted">Vượt link để nhận thưởng mỗi ngày</p>
+          </div>
+          <span class="tag" id="earn-tag">ĐĂNG NHẬP</span>
+        </div>
+        <div id="earn-content">
+          <div class="empty-state">
+            <span>💰</span>
+            <h3>Đang tải...</h3>
+          </div>
+        </div>
+      </section>
+    </div>
+
     <!-- Trang 3: Bảng xếp hạng -->
     <div class="page" id="page-xep-hang" hidden>
       <section class="panel">
@@ -172,6 +192,7 @@
   <nav class="tabbar" aria-label="Menu chính">
     <a class="tab" href="#tong-quan" data-route="tong-quan"><span>🏠</span>Tổng quan</a>
     <a class="tab" href="#vi" data-route="vi"><span>👛</span>Ví</a>
+    <a class="tab" href="#kiem-token" data-route="kiem-token"><span>💰</span>Kiếm Token</a>
     <a class="tab" href="#xep-hang" data-route="xep-hang"><span>🏆</span>Xếp hạng</a>
     <a class="tab" href="#kinh-te" data-route="kinh-te"><span>📊</span>Kinh tế</a>
   </nav>
@@ -181,5 +202,6 @@
   <script src="js/dashboard.js"></script>
   <script src="js/wallet.js"></script>
   <script src="js/leaderboard.js"></script>
+  <script src="js/earn.js"></script>
 </body>
 </html>
