@@ -1,12 +1,10 @@
-
 <!DOCTYPE html>
 <html lang="vi">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport"
-    content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="theme-color" content="#071522">
-  <title>NEXUS - Economy Dashboard</title>
+  <title>NEXUS · Bảng điều khiển kinh tế</title>
   <link rel="stylesheet" href="css/style.css">
   <link rel="stylesheet" href="css/auth.css">
   <link rel="stylesheet" href="css/dashboard.css">
@@ -18,47 +16,35 @@
       <span class="brand-icon">🌊</span>
       <div>
         <h2>NEXUS</h2>
-        <small>ECONOMY SYSTEM</small>
+        <small>HỆ THỐNG KINH TẾ</small>
       </div>
     </div>
 
-    <p class="nav-label">MAIN MENU</p>
-
+    <p class="nav-label">MENU CHÍNH</p>
     <nav>
-      <a class="nav-item active" href="#overview">
-        ◈ Overview
-      </a>
-      <a class="nav-item" href="#wallet">
-        ◆ Wallet
-      </a>
-      <a class="nav-item" href="#leaderboard">
-        ♛ Bảng xếp hạng
-      </a>
-      <a class="nav-item" href="#economy">
-        ◉ Economy
-      </a>
+      <a class="nav-item" href="#tong-quan" data-route="tong-quan"><span>🏠</span> Tổng quan</a>
+      <a class="nav-item" href="#vi" data-route="vi"><span>👛</span> Ví của tôi</a>
+      <a class="nav-item" href="#xep-hang" data-route="xep-hang"><span>🏆</span> Bảng xếp hạng</a>
+      <a class="nav-item" href="#kinh-te" data-route="kinh-te"><span>📊</span> Kinh tế</a>
     </nav>
 
     <div class="sidebar-bottom">
       <span class="status-dot"></span>
-      NEXUS v0.6.0
+      NEXUS v0.6b
     </div>
   </aside>
 
   <main class="main-content">
     <header class="topbar">
-      <button id="menu-toggle" class="menu-btn"
-        aria-label="Mở menu">☰</button>
-
       <div>
-        <small class="muted">DISCORD ECONOMY</small>
-        <h2>Overview</h2>
+        <small class="muted" id="page-eyebrow">BẢNG ĐIỀU KHIỂN</small>
+        <h2 id="page-title">Tổng quan</h2>
       </div>
 
       <div class="user-area">
         <span class="avatar" id="user-avatar">🐟</span>
         <div class="user-info">
-          <span id="user-name">Guest</span>
+          <span id="user-name">Khách</span>
           <small id="user-id" class="muted" hidden></small>
         </div>
         <button id="login-btn" class="btn">Đăng nhập Discord</button>
@@ -66,106 +52,129 @@
       </div>
     </header>
 
-    <section class="welcome" id="overview">
-      <div>
-        <p class="eyebrow">WELCOME TO NEXUS</p>
-        <h1>Explore the Ocean.</h1>
-        <p class="muted">
-          Your economy, your ocean, your rules.
-        </p>
-      </div>
-      <div class="ocean-icon">🐠</div>
-    </section>
-
-    <section class="stats-grid">
-      <article class="stat-card">
-        <span>🤖 Bot Status</span>
-        <h2 id="stat-status" class="demo-status">DEMO</h2>
-        <small id="stat-status-note">Chưa kết nối bot</small>
+    <!-- Trang 1: Tổng quan -->
+    <div class="page" id="page-tong-quan">
+      <section class="welcome">
         <div>
-          <button id="api-btn" class="btn btn-ghost btn-small">🔌 Địa chỉ API</button>
+          <p class="eyebrow">CHÀO MỪNG ĐẾN NEXUS</p>
+          <h1>Khám phá đại dương.</h1>
+          <p class="muted">Nền kinh tế của bạn, đại dương của bạn, luật chơi của bạn.</p>
         </div>
-      </article>
+        <div class="ocean-icon">🐠</div>
+      </section>
 
-      <article class="stat-card">
-        <span>👥 Players</span>
-        <h2 id="stat-players">0</h2>
-        <small id="players-note">Demo data</small>
-      </article>
+      <section class="stats-grid">
+        <article class="stat-card">
+          <span>🤖 Trạng thái bot</span>
+          <h2 id="stat-status" class="demo-status">CHƯA KẾT NỐI</h2>
+          <small id="stat-status-note">Chưa kết nối bot</small>
+          <div><button id="api-btn" class="btn btn-ghost btn-small">🔌 Kết nối API</button></div>
+        </article>
 
-      <article class="stat-card">
-        <span>🐟 Total Supply</span>
-        <h2 id="stat-supply">0</h2>
-        <small id="supply-note">Token Cá 🪙</small>
-      </article>
+        <article class="stat-card">
+          <span>👥 Người chơi</span>
+          <h2 id="stat-players">0</h2>
+          <small id="players-note">Chưa có dữ liệu</small>
+        </article>
 
-      <article class="stat-card">
-        <span>⇄ Transactions</span>
-        <h2 id="stat-tx">0</h2>
-        <small id="tx-note">Demo data</small>
-      </article>
-    </section>
+        <article class="stat-card">
+          <span>🐟 Tổng cung</span>
+          <h2 id="stat-supply">0</h2>
+          <small id="supply-note">Token Cá 🪙</small>
+        </article>
 
-    <section class="panel" id="wallet">
-      <div class="panel-heading">
-        <div>
-          <h3>My Wallet</h3>
-          <p class="muted">Ví Token Cá của bạn</p>
+        <article class="stat-card">
+          <span>⇄ Giao dịch</span>
+          <h2 id="stat-tx">0</h2>
+          <small id="tx-note">Chưa có dữ liệu</small>
+        </article>
+      </section>
+
+      <section class="panel">
+        <div class="panel-heading">
+          <div>
+            <h3>Cách chơi</h3>
+            <p class="muted">Gõ các lệnh này trong server Discord</p>
+          </div>
         </div>
-        <span class="tag" id="wallet-tag">LOGIN</span>
-      </div>
+        <ul class="howto">
+          <li><code>/daily</code><span>Điểm danh nhận Token Cá mỗi ngày</span></li>
+          <li><code>/work</code><span>Làm việc ngoài biển, nghỉ 30 phút giữa các lần</span></li>
+          <li><code>/balance</code><span>Xem số dư của bạn hoặc người khác</span></li>
+          <li><code>/leaderboard</code><span>Xem những người giàu nhất</span></li>
+        </ul>
+      </section>
+    </div>
 
-      <div id="wallet-content">
-        <div class="empty-state">
-          <span>🔐</span>
-          <h3>Đăng nhập để xem ví</h3>
-          <p>Đăng nhập bằng Discord để xem số dư của bạn.</p>
+    <!-- Trang 2: Ví của tôi -->
+    <div class="page" id="page-vi" hidden>
+      <section class="panel">
+        <div class="panel-heading">
+          <div>
+            <h3>Ví của tôi</h3>
+            <p class="muted">Số dư và lịch sử Token Cá của bạn</p>
+          </div>
+          <span class="tag" id="wallet-tag">ĐĂNG NHẬP</span>
         </div>
-      </div>
-    </section>
-
-    <section class="panel" id="leaderboard">
-      <div class="panel-heading">
-        <div>
-          <h3>Bảng xếp hạng</h3>
-          <p class="muted">Những người giàu nhất NEXUS</p>
+        <div id="wallet-content">
+          <div class="empty-state">
+            <span>🔐</span>
+            <h3>Đăng nhập để xem ví</h3>
+            <p>Đăng nhập bằng Discord để xem số dư của bạn.</p>
+          </div>
         </div>
-        <span class="tag" id="leaderboard-tag">TOKEN CÁ</span>
-      </div>
+      </section>
+    </div>
 
-      <div id="leaderboard-content">
-        <div class="empty-state">
-          <span>♛</span>
-          <h3>Đang tải bảng xếp hạng...</h3>
+    <!-- Trang 3: Bảng xếp hạng -->
+    <div class="page" id="page-xep-hang" hidden>
+      <section class="panel">
+        <div class="panel-heading">
+          <div>
+            <h3>Bảng xếp hạng</h3>
+            <p class="muted">Những người giàu nhất NEXUS</p>
+          </div>
+          <span class="tag" id="leaderboard-tag">TOKEN CÁ</span>
         </div>
-      </div>
-    </section>
-
-    <section class="panel" id="economy">
-      <div class="panel-heading">
-        <div>
-          <h3>Economy Overview</h3>
-          <p class="muted">System summary</p>
+        <div id="leaderboard-content">
+          <div class="empty-state">
+            <span>🏆</span>
+            <h3>Đang tải bảng xếp hạng...</h3>
+          </div>
         </div>
-        <span class="tag" id="economy-tag">PREVIEW</span>
-      </div>
+      </section>
+    </div>
 
-      <div id="economy-content">
-        <div class="empty-state">
-          <span>🌊</span>
-          <h3>The ocean is waiting.</h3>
-          <p>
-            Kết nối bot để xem giao dịch gần đây.
-          </p>
+    <!-- Trang 4: Kinh tế -->
+    <div class="page" id="page-kinh-te" hidden>
+      <section class="panel">
+        <div class="panel-heading">
+          <div>
+            <h3>Giao dịch gần đây</h3>
+            <p class="muted">Hoạt động mới nhất trong toàn server</p>
+          </div>
+          <span class="tag" id="economy-tag">XEM TRƯỚC</span>
         </div>
-      </div>
-      <p class="muted updated" id="updated-at"></p>
-    </section>
+        <div id="economy-content">
+          <div class="empty-state">
+            <span>🌊</span>
+            <h3>Đại dương đang chờ.</h3>
+            <p>Kết nối bot để xem giao dịch gần đây.</p>
+          </div>
+        </div>
+        <p class="muted updated" id="updated-at"></p>
+      </section>
+    </div>
 
-    <footer>
-      NEXUS © 2026 · Fish Economy System
-    </footer>
+    <footer>NEXUS © 2026 · Hệ thống kinh tế cá</footer>
   </main>
+
+  <nav class="tabbar" aria-label="Menu chính">
+    <a class="tab" href="#tong-quan" data-route="tong-quan"><span>🏠</span>Tổng quan</a>
+    <a class="tab" href="#vi" data-route="vi"><span>👛</span>Ví</a>
+    <a class="tab" href="#xep-hang" data-route="xep-hang"><span>🏆</span>Xếp hạng</a>
+    <a class="tab" href="#kinh-te" data-route="kinh-te"><span>📊</span>Kinh tế</a>
+  </nav>
 
   <script src="js/app.js"></script>
   <script src="js/auth.js"></script>
