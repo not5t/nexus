@@ -123,13 +123,13 @@ function render(user) {
     els.name.textContent = user.name;
     els.id.textContent = "ID: " + user.id;
     els.id.hidden = false;
-    els.eyebrow.textContent = "WELCOME BACK, " + user.name.toUpperCase();
+    els.eyebrow.textContent = "CHÀO MỪNG TRỞ LẠI, " + user.name.toUpperCase();
   } else {
     els.avatar.textContent = "🐟";
     els.avatar.classList.remove("has-img");
-    els.name.textContent = "Guest";
+    els.name.textContent = "Khách";
     els.id.hidden = true;
-    els.eyebrow.textContent = "WELCOME TO NEXUS";
+    els.eyebrow.textContent = "CHÀO MỪNG ĐẾN NEXUS";
   }
 
   els.login.hidden = !!user;

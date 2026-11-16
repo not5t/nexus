@@ -71,7 +71,7 @@ let lbBusy = false;
 async function refreshLeaderboard() {
   const apiUrl = getApiUrl();
   if (!apiUrl) {
-    return lbMessage("🔌", "Chưa kết nối bot", "Bấm nút 🔌 Địa chỉ API ở thẻ Bot Status để kết nối.", "OFFLINE");
+    return lbMessage("🔌", "Chưa kết nối bot", "Vào trang Tổng quan và bấm nút 🔌 Kết nối API.", "MẤT KẾT NỐI");
   }
   if (lbBusy) return;
 
@@ -82,7 +82,7 @@ async function refreshLeaderboard() {
     renderLeaderboard(await res.json());
   } catch (err) {
     console.warn("Không tải được bảng xếp hạng:", err);
-    lbMessage("🔌", "Không kết nối được bot", "Thử lại sau ít phút.", "OFFLINE");
+    lbMessage("🔌", "Không kết nối được bot", "Thử lại sau ít phút.", "MẤT KẾT NỐI");
   } finally {
     lbBusy = false;
   }

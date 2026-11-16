@@ -1,23 +1,37 @@
+// NEXUS - Điều hướng giữa các trang (mỗi lần chỉ hiện một trang)
+const ROUTES = {
+  "tong-quan": { title: "Tổng quan", eyebrow: "BẢNG ĐIỀU KHIỂN" },
+  "vi": { title: "Ví của tôi", eyebrow: "TÀI KHOẢN" },
+  "xep-hang": { title: "Bảng xếp hạng", eyebrow: "CỘNG ĐỒNG" },
+  "kinh-te": { title: "Kinh tế", eyebrow: "HỆ THỐNG" },
+};
+const DEFAULT_ROUTE = "tong-quan";
 
-const menuButton = document.getElementById("menu-toggle");
-const sidebar = document.querySelector(".sidebar");
+function currentRoute() {
+  const name = location.hash.slice(1);
+  return ROUTES[name] ? name : DEFAULT_ROUTE;
+}
 
-menuButton.addEventListener("click", () => {
-  sidebar.classList.toggle("open");
-});
+function showRoute() {
+  const name = currentRoute();
 
-document.querySelectorAll(".nav-item").forEach(item => {
-  item.addEventListener("click", () => {
-    document.querySelectorAll(".nav-item")
-      .forEach(link => link.classList.remove("active"));
-
-    item.classList.add("active");
-
-    if (window.innerWidth <= 850) {
-      sidebar.classList.remove("open");
-    }
+  document.querySelectorAll(".page").forEach(page => {
+    page.hidden = page.id !== "page-" + name;
   });
-});
 
-console.log("NEXUS Dashboard initialized!");
-  
+  document.querySelectorAll("[data-route]").forEach(link => {
+    const active = link.dataset.route === name;
+    link.classList.toggle("active", active);
+    if (active) link.setAttribute("aria-current", "page");
+    else link.removeAttribute("aria-current");
+  });
+
+  document.getElementById("page-title").textContent = ROUTES[name].title;
+  document.getElementById("page-eyebrow").textContent = ROUTES[name].eyebrow;
+  document.title = ROUTES[name].title + " · NEXUS";
+  window.scrollTo(0, 0);
+}
+
+// Lưu ý: không ghi đè location.hash ở đây, vì Discord trả token về qua hash khi đăng nhập
+window.addEventListener("hashchange", showRoute);
+showRoute();

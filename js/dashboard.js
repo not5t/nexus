@@ -146,7 +146,7 @@ function renderOnline(data) {
   const eco = data.economy || {};
 
   const ping = bot.pingMs > 0 ? " · " + bot.pingMs + "ms" : "";
-  setStatus(bot.online ? "ONLINE" : "OFFLINE", bot.online ? "status-online" : "status-offline", (bot.tag || "NEXUS") + ping);
+  setStatus(bot.online ? "HOẠT ĐỘNG" : "MẤT KẾT NỐI", bot.online ? "status-online" : "status-offline", (bot.tag || "NEXUS") + ping);
 
   ui.players.textContent = fmt(eco.players);
   ui.playersNote.textContent = "Người chơi đã có ví";
@@ -155,25 +155,25 @@ function renderOnline(data) {
   ui.tx.textContent = fmt(eco.transactions);
   ui.txNote.textContent = "24 giờ qua: " + fmt(eco.transactions24h);
 
-  ui.economyTag.textContent = "LIVE";
+  ui.economyTag.textContent = "TRỰC TIẾP";
   renderRecent(data.recent);
   ui.updatedAt.textContent = "Cập nhật lúc " + new Date().toLocaleTimeString("vi-VN");
 }
 
 function renderOffline() {
-  setStatus("OFFLINE", "status-offline", "Không kết nối được API");
+  setStatus("MẤT KẾT NỐI", "status-offline", "Không kết nối được API");
   for (const el of [ui.players, ui.supply, ui.tx]) el.textContent = "—";
-  ui.economyTag.textContent = "OFFLINE";
+  ui.economyTag.textContent = "MẤT KẾT NỐI";
   ui.updatedAt.textContent = "";
   emptyState(
     "🔌",
     "Không kết nối được bot",
-    "Kiểm tra bot và tunnel đang chạy, rồi bấm nút 🔌 để nhập lại địa chỉ API."
+    "Kiểm tra lại địa chỉ API, rồi bấm nút 🔌 Kết nối API ở trang Tổng quan."
   );
 }
 
 function renderNoApi() {
-  ui.statusNote.textContent = "Bấm 🔌 để nhập địa chỉ API";
+  ui.statusNote.textContent = "Bấm 🔌 Kết nối API để bắt đầu";
 }
 
 // ---------- Tải dữ liệu ----------

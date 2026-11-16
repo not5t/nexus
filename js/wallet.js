@@ -122,7 +122,7 @@ function renderWallet(data) {
     wrap.appendChild(ul);
   }
 
-  walletUi.tag.textContent = "LIVE";
+  walletUi.tag.textContent = "TRỰC TIẾP";
   walletUi.box.replaceChildren(wrap);
 }
 
@@ -148,16 +148,16 @@ async function fetchWallet(apiUrl, token) {
 }
 
 const showLoginNeeded = () =>
-  walletMessage("🔐", "Đăng nhập để xem ví", "Đăng nhập bằng Discord để xem số dư và lịch sử giao dịch của bạn.", "LOGIN", "Đăng nhập Discord", () => login());
+  walletMessage("🔐", "Đăng nhập để xem ví", "Đăng nhập bằng Discord để xem số dư và lịch sử giao dịch của bạn.", "ĐĂNG NHẬP", "Đăng nhập Discord", () => login());
 
 const showReloginNeeded = () =>
-  walletMessage("🔄", "Cần đăng nhập lại", "Phiên đăng nhập đã hết hạn hoặc chưa được lưu. Đăng nhập lại chỉ mất vài giây.", "LOGIN", "Đăng nhập lại", () => login());
+  walletMessage("🔄", "Cần đăng nhập lại", "Phiên đăng nhập đã hết hạn hoặc chưa được lưu. Đăng nhập lại chỉ mất vài giây.", "ĐĂNG NHẬP", "Đăng nhập lại", () => login());
 
 const showNoApi = () =>
-  walletMessage("🔌", "Chưa kết nối bot", "Bấm nút 🔌 Địa chỉ API ở thẻ Bot Status để nhập địa chỉ API của bot.", "OFFLINE");
+  walletMessage("🔌", "Chưa kết nối bot", "Vào trang Tổng quan và bấm nút 🔌 Kết nối API để nhập địa chỉ API.", "MẤT KẾT NỐI");
 
 const showWalletOffline = () =>
-  walletMessage("🔌", "Không kết nối được bot", "Kiểm tra bot và tunnel đang chạy, rồi thử lại sau ít phút.", "OFFLINE");
+  walletMessage("🔌", "Không kết nối được bot", "Kiểm tra lại địa chỉ API, rồi thử lại sau ít phút.", "MẤT KẾT NỐI");
 
 let walletBusy = false;
 
@@ -194,4 +194,3 @@ setInterval(() => {
 }, 30000);
 
 refreshWallet();
-    
