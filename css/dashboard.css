@@ -108,3 +108,15 @@
   margin-top: 22px;
   font-size: 14px;
 }
+
+/* ---------- Kiếm Token Cá ---------- */
+.tabbar { grid-template-columns: repeat(5, 1fr); }
+.tab { font-size: 10px; }
+.earn-actions { display: grid; gap: 10px; margin-top: 16px; }
+.btn-big { min-height: 46px; padding: 13px 16px; font-size: 14px; text-align: center; text-decoration: none; }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.notice { min-height: 20px; margin-top: 12px; color: var(--accent); font-size: 13px; }
+.earn-info { margin-top: 10px; line-height: 1.5; }
+.claim-wrap { max-width: 480px; margin: 0 auto; padding: 28px 16px; }
+.claim-brand { margin-bottom: 16px; text-align: center; font-weight: 700; letter-spacing: 3px; }
+.claim-wrap .btn-big { display: inline-block; margin-top: 18px; }
