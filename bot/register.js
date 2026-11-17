@@ -15,7 +15,22 @@ const commands = [
   },
   { name: "daily", description: "Điểm danh nhận Token Cá mỗi ngày" },
   { name: "work", description: "Đi làm việc ngoài biển để kiếm Token Cá" },
-  { name: "leaderboard", description: "Bảng xếp hạng người giàu nhất" },
+  {
+    name: "leaderboard",
+    description: "Xem bảng xếp hạng",
+    options: [
+      {
+        type: 3,
+        name: "loai",
+        description: "Chọn loại bảng xếp hạng (mặc định là Token Cá)",
+        required: false,
+        choices: [
+          { name: "Token Cá", value: "tokens" },
+          { name: "Vượt link", value: "links" },
+        ],
+      },
+    ],
+  },
 ];
 
 // Có GUILD_ID: cập nhật ngay trong server đó. PUT sẽ thay thế toàn bộ lệnh cũ cùng phạm vi.
