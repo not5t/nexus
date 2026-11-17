@@ -120,3 +120,8 @@
 .claim-wrap { max-width: 480px; margin: 0 auto; padding: 28px 16px; }
 .claim-brand { margin-bottom: 16px; text-align: center; font-weight: 700; letter-spacing: 3px; }
 .claim-wrap .btn-big { display: inline-block; margin-top: 18px; }
+
+/* ---------- Tab chọn loại bảng xếp hạng ---------- */
+.seg { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 16px; padding: 5px; border: 1px solid var(--border); border-radius: 14px; background: var(--sidebar); }
+.seg-btn { padding: 11px 8px; border: none; border-radius: 10px; background: transparent; color: var(--muted); font-size: 13px; font-weight: 600; cursor: pointer; }
+.seg-btn.active { background: #15384c; color: var(--primary); }
