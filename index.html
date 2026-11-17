@@ -152,9 +152,13 @@
         <div class="panel-heading">
           <div>
             <h3>Bảng xếp hạng</h3>
-            <p class="muted">Những người giàu nhất NEXUS</p>
+            <p class="muted">Những người đứng đầu NEXUS</p>
           </div>
           <span class="tag" id="leaderboard-tag">TOKEN CÁ</span>
+        </div>
+        <div class="seg" role="tablist">
+          <button class="seg-btn active" data-lb="tokens">🪙 Token Cá</button>
+          <button class="seg-btn" data-lb="links">💰 Vượt link</button>
         </div>
         <div id="leaderboard-content">
           <div class="empty-state">
@@ -197,6 +201,7 @@
     <a class="tab" href="#kinh-te" data-route="kinh-te"><span>📊</span>Kinh tế</a>
   </nav>
 
+  <script src="js/config.js"></script>
   <script src="js/app.js"></script>
   <script src="js/auth.js"></script>
   <script src="js/dashboard.js"></script>
