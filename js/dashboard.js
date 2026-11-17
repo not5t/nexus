@@ -1,7 +1,7 @@
 // NEXUS v0.4 - Dashboard đọc số liệu thật từ API của bot
 const API_STORAGE_KEY = "nexus_api_url";
 // Khi có hosting thật, điền địa chỉ cố định vào đây (vd: "https://api.tenmien.com")
-const DEFAULT_API_URL = "";
+const DEFAULT_API_URL = typeof NEXUS_API_URL === "string" ? NEXUS_API_URL : ""; // đặt trong js/config.js
 const REFRESH_MS = 30000;
 const FETCH_TIMEOUT_MS = 8000;
 
@@ -23,6 +23,7 @@ const ui = {
 const TYPE_INFO = {
   daily: { icon: "🎁", label: "Điểm danh" },
   work: { icon: "🎣", label: "Làm việc" },
+  link: { icon: "💰", label: "Vượt link" },
 };
 
 const fmt = n => (Number(n) || 0).toLocaleString("vi-VN");
@@ -51,11 +52,13 @@ function normalizeApiUrl(input) {
 }
 
 function getApiUrl() {
+  const configured = normalizeApiUrl(DEFAULT_API_URL);
+  if (configured) return configured;
   try {
     const saved = normalizeApiUrl(localStorage.getItem(API_STORAGE_KEY) || "");
     if (saved) return saved;
   } catch {}
-  return normalizeApiUrl(DEFAULT_API_URL) || "";
+  return "";
 }
 
 function askApiUrl() {
@@ -168,7 +171,7 @@ function renderOffline() {
   emptyState(
     "🔌",
     "Không kết nối được bot",
-    "Kiểm tra lại địa chỉ API, rồi bấm nút 🔌 Kết nối API ở trang Tổng quan."
+    "Thử lại sau ít phút. Nếu vẫn lỗi, chủ web cần kiểm tra địa chỉ API."
   );
 }
 
@@ -208,6 +211,8 @@ async function refresh() {
   }
 }
 
+// Đã cấu hình sẵn thì ẩn nút nhập địa chỉ API, người chơi không cần làm gì
+if (normalizeApiUrl(DEFAULT_API_URL)) ui.apiBtn.hidden = true;
 ui.apiBtn.addEventListener("click", askApiUrl);
 document.addEventListener("visibilitychange", () => {
   if (!document.hidden) refresh();
