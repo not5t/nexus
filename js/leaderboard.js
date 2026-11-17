@@ -1,8 +1,16 @@
-// NEXUS v0.6a - Bảng xếp hạng Token Cá (dùng getApiUrl, fmt từ dashboard.js)
+// NEXUS - Bảng xếp hạng (2 loại: Token Cá và Vượt link). Dùng getApiUrl, fmt từ dashboard.js
 const lbUi = {
   box: document.getElementById("leaderboard-content"),
   tag: document.getElementById("leaderboard-tag"),
+  tabs: document.querySelectorAll("[data-lb]"),
 };
+
+const LB_TYPES = {
+  tokens: { tag: "TOKEN CÁ", empty: "Gõ /daily trong server để là người đầu tiên!", value: p => fmt(p.balance) + " 🪙" },
+  links: { tag: "VƯỢT LINK", empty: "Vào trang Kiếm Token Cá để vượt link đầu tiên!", value: p => fmt(p.count) + " lần" },
+};
+
+let lbType = "tokens";
 
 function lbMessage(icon, title, text, tag) {
   const box = document.createElement("div");
@@ -16,11 +24,10 @@ function lbMessage(icon, title, text, tag) {
   lbUi.box.replaceChildren(box);
 }
 
-function renderLeaderboard(data) {
+function renderLeaderboard(data, type) {
+  const cfg = LB_TYPES[type];
   const top = Array.isArray(data.top) ? data.top : [];
-  if (top.length === 0) {
-    return lbMessage("🌊", "Chưa có ai trên bảng", "Gõ /daily trong server để là người đầu tiên!", "TOKEN CÁ");
-  }
+  if (top.length === 0) return lbMessage("🌊", "Chưa có ai trên bảng", cfg.empty, cfg.tag);
 
   const medals = ["🥇", "🥈", "🥉"];
   const ul = document.createElement("ul");
@@ -53,16 +60,13 @@ function renderLeaderboard(data) {
 
     const amount = document.createElement("span");
     amount.className = "tx-amount";
-    amount.textContent = fmt(p.balance) + " 🪙";
+    amount.textContent = cfg.value(p);
 
-    li.appendChild(rank);
-    li.appendChild(avatar);
-    li.appendChild(main);
-    li.appendChild(amount);
+    li.append(rank, avatar, main, amount);
     ul.appendChild(li);
   }
 
-  lbUi.tag.textContent = "TOKEN CÁ";
+  lbUi.tag.textContent = cfg.tag;
   lbUi.box.replaceChildren(ul);
 }
 
@@ -70,22 +74,31 @@ let lbBusy = false;
 
 async function refreshLeaderboard() {
   const apiUrl = getApiUrl();
-  if (!apiUrl) {
-    return lbMessage("🔌", "Chưa kết nối bot", "Vào trang Tổng quan và bấm nút 🔌 Kết nối API.", "MẤT KẾT NỐI");
-  }
+  if (!apiUrl) return lbMessage("🔌", "Chưa kết nối bot", "Chưa có địa chỉ API. Chủ web cần điền vào file js/config.js.", "MẤT KẾT NỐI");
   if (lbBusy) return;
 
   lbBusy = true;
+  const type = lbType;
   try {
-    const res = await fetch(apiUrl + "/api/leaderboard", { cache: "no-store" });
+    const res = await fetch(apiUrl + "/api/leaderboard?type=" + type, { cache: "no-store" });
     if (!res.ok) throw new Error("HTTP " + res.status);
-    renderLeaderboard(await res.json());
+    const data = await res.json();
+    if (type === lbType) renderLeaderboard(data, type); // bỏ qua nếu người dùng đã đổi tab
   } catch (err) {
     console.warn("Không tải được bảng xếp hạng:", err);
     lbMessage("🔌", "Không kết nối được bot", "Thử lại sau ít phút.", "MẤT KẾT NỐI");
   } finally {
     lbBusy = false;
   }
+}
+
+for (const tab of lbUi.tabs) {
+  tab.addEventListener("click", () => {
+    lbType = tab.dataset.lb;
+    lbUi.tabs.forEach(t => t.classList.toggle("active", t === tab));
+    lbBusy = false;
+    refreshLeaderboard();
+  });
 }
 
 document.addEventListener("nexus:api", refreshLeaderboard);
