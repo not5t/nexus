@@ -14,6 +14,7 @@ const commands = [
     options: [{ type: 6, name: "user", description: "Người bạn muốn xem (mặc định là bạn)", required: false }],
   },
   { name: "daily", description: "Điểm danh nhận Token Cá mỗi ngày" },
+  { name: "masoi", description: "Tạo phòng chơi Ma Sói trong server" },
   { name: "work", description: "Đi làm việc ngoài biển để kiếm Token Cá" },
   {
     name: "pay",
