@@ -16,6 +16,14 @@ const commands = [
   { name: "daily", description: "Điểm danh nhận Token Cá mỗi ngày" },
   { name: "work", description: "Đi làm việc ngoài biển để kiếm Token Cá" },
   {
+    name: "pay",
+    description: "Chuyển Token Cá cho người khác",
+    options: [
+      { type: 6, name: "user", description: "Người nhận", required: true },
+      { type: 4, name: "amount", description: "Số Token Cá muốn chuyển", required: true, min_value: 1, max_value: 1000000 },
+    ],
+  },
+  {
     name: "leaderboard",
     description: "Xem bảng xếp hạng",
     options: [
