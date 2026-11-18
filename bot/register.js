@@ -17,10 +17,10 @@ const commands = [
   { name: "work", description: "Đi làm việc ngoài biển để kiếm Token Cá" },
   {
     name: "pay",
-    description: "Chuyển Token Cá cho người khác",
+    description: "Chuyển Token Cá cho người khác (thuế 10%)",
     options: [
       { type: 6, name: "user", description: "Người nhận", required: true },
-      { type: 4, name: "amount", description: "Số Token Cá muốn chuyển", required: true, min_value: 1, max_value: 1000000 },
+      { type: 4, name: "amount", description: "Số Token Cá muốn chuyển", required: true, min_value: 10, max_value: 1000000 },
     ],
   },
   {
