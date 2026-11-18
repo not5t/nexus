@@ -24,6 +24,8 @@ const TYPE_INFO = {
   daily: { icon: "🎁", label: "Điểm danh" },
   work: { icon: "🎣", label: "Làm việc" },
   link: { icon: "💰", label: "Vượt link" },
+  pay_out: { icon: "💸", label: "Đã chuyển" },
+  pay_in: { icon: "📥", label: "Đã nhận" },
 };
 
 const fmt = n => (Number(n) || 0).toLocaleString("vi-VN");
