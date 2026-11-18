@@ -1,0 +1,22 @@
+# Mẫu cấu hình Durable Object cho NEXUS Ma Sói.
+# Hợp nhất các mục này vào wrangler.toml đang triển khai Worker.
+# Giữ nguyên D1 binding DB và database_id thật đang dùng; không thay bằng giá trị mẫu.
+
+name = "nexus-worker"
+main = "worker.js"
+compatibility_date = "2026-11-18"
+
+[[durable_objects.bindings]]
+name = "MASOI_ROOMS"
+class_name = "MasoiRoom"
+
+# Khai báo class SQLite mới theo cấu hình exports hiện hành của Wrangler.
+[exports.MasoiRoom]
+type = "durable-object"
+storage = "sqlite"
+
+# D1 binding DB đang dùng cho NEXUS phải được giữ nguyên, ví dụ:
+# [[d1_databases]]
+# binding = "DB"
+# database_name = "TEN_DATABASE_D1_HIEN_TAI"
+# database_id = "DATABASE_ID_HIEN_TAI"
