@@ -26,6 +26,7 @@ const TYPE_INFO = {
   link: { icon: "💰", label: "Vượt link" },
   pay_out: { icon: "💸", label: "Đã chuyển" },
   pay_in: { icon: "📥", label: "Đã nhận" },
+  masoi: { icon: "🐺", label: "Ma Sói" },
 };
 
 const fmt = n => (Number(n) || 0).toLocaleString("vi-VN");
@@ -64,12 +65,12 @@ function getApiUrl() {
 }
 
 function askApiUrl() {
-  const input = prompt("Dán địa chỉ kết nối của bot NEXUS (bắt đầu bằng https://):", getApiUrl());
+  const input = prompt("Dán địa chỉ API của bot (bắt đầu bằng https://):", getApiUrl());
   if (input === null) return;
 
   const url = normalizeApiUrl(input);
   if (!url) {
-    alert("Địa chỉ kết nối không hợp lệ. Cần bắt đầu bằng https://");
+    alert("Địa chỉ không hợp lệ. Cần bắt đầu bằng https://");
     return;
   }
 
@@ -147,10 +148,11 @@ function renderRecent(list) {
 }
 
 function renderOnline(data) {
-  const api = data.api || {};
+  const bot = data.bot || {};
   const eco = data.economy || {};
 
-  setStatus(api.online ? "BOT ĐANG HOẠT ĐỘNG" : "BOT MẤT KẾT NỐI", api.online ? "status-online" : "status-offline", api.tag ? `Backend bot: ${api.tag}` : "NEXUS đang phản hồi");
+  const ping = bot.pingMs > 0 ? " · " + bot.pingMs + "ms" : "";
+  setStatus(bot.online ? "HOẠT ĐỘNG" : "MẤT KẾT NỐI", bot.online ? "status-online" : "status-offline", (bot.tag || "NEXUS") + ping);
 
   ui.players.textContent = fmt(eco.players);
   ui.playersNote.textContent = "Người chơi đã có ví";
@@ -165,21 +167,19 @@ function renderOnline(data) {
 }
 
 function renderOffline() {
-  setStatus("BOT MẤT KẾT NỐI", "status-offline", "Không nhận được phản hồi từ backend bot");
+  setStatus("MẤT KẾT NỐI", "status-offline", "Không kết nối được API");
   for (const el of [ui.players, ui.supply, ui.tx]) el.textContent = "—";
   ui.economyTag.textContent = "MẤT KẾT NỐI";
   ui.updatedAt.textContent = "";
   emptyState(
     "🔌",
     "Không kết nối được bot",
-    "Thử lại sau ít phút. Nếu vẫn lỗi, hãy kiểm tra địa chỉ kết nối của bot."
+    "Thử lại sau ít phút. Nếu vẫn lỗi, chủ web cần kiểm tra địa chỉ API."
   );
 }
 
 function renderNoApi() {
-  ui.status.textContent = "CHƯA KẾT NỐI";
-  ui.status.className = "demo-status";
-  ui.statusNote.textContent = "Bấm 🤖 Kết nối bot để bắt đầu";
+  ui.statusNote.textContent = "Bấm 🔌 Kết nối API để bắt đầu";
 }
 
 // ---------- Tải dữ liệu ----------
@@ -214,7 +214,7 @@ async function refresh() {
   }
 }
 
-// Đã cấu hình sẵn thì ẩn nút kết nối thủ công, người chơi không cần làm gì
+// Đã cấu hình sẵn thì ẩn nút nhập địa chỉ API, người chơi không cần làm gì
 if (normalizeApiUrl(DEFAULT_API_URL)) ui.apiBtn.hidden = true;
 ui.apiBtn.addEventListener("click", askApiUrl);
 document.addEventListener("visibilitychange", () => {
