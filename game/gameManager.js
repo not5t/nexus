@@ -6,6 +6,9 @@ const MAX = 25, MIN = 6;
 const ms = n => n * 1000;
 const safe = s => String(s || "Người chơi").replace(/[\\*_~`|>@]/g, "").slice(0, 50);
 const mention = id => `<@${id}>`;
+const isWolfRole = r => r === ROLE.WOLF || r === ROLE.CUB || r === ROLE.LONE_WOLF;
+const MAX_REWARD_GAMES_PER_DAY = 10; // chống lập tài khoản phụ để cày thưởng
+const VN_OFFSET = 7 * 3600e3, DAY_MS = 86400e3;
 const json = (data, status = 200) => new Response(JSON.stringify(data), { status, headers: { "content-type": "application/json" } });
 
 export class MasoiRoom extends DurableObject {
@@ -142,11 +145,13 @@ export class MasoiRoom extends DurableObject {
         if (vals[0] === s.lastGuard) return { ok: false, message: "Bạn không thể bảo vệ cùng một người hai đêm liên tiếp." };
         s.actions.guard = vals[0];
       } else if (roleAction === "seer" && s.phase === "night_actions" && !s.elderDisabled && player.role === ROLE.SEER && vals[0]) {
+        if (s.actions.seer) return { ok: false, message: "Đêm nay bạn đã soi rồi." };
         s.actions.seer = vals[0];
         const target = s.players.find(p => p.id === vals[0]);
         const team = target ? (teamOf(target.role) === "wolves" || teamOf(target.role) === "solo_wolf" ? "Phe Sói" : teamOf(target.role) === "third" ? "Phe Thứ 3" : "Phe Dân") : "không rõ";
         await this.dm(id, this.embed("🔮 Kết quả Tiên Tri", `${mention(vals[0])} thuộc **${team}**.`));
       } else if (roleAction === "wolf" && s.phase === "night_actions" && [ROLE.WOLF, ROLE.CUB, ROLE.LONE_WOLF].includes(player.role) && vals[0]) {
+        if (!vals.every(v => { const t = s.players.find(x => x.id === v); return t && t.alive && !isWolfRole(t.role); })) return { ok: false, message: "Sói không được cắn đồng đội hoặc người đã chết." };
         s.actions.wolf ||= {}; s.actions.wolf[id] = vals.slice(0, s.doubleBite ? 2 : 1);
       } else if (roleAction === "witch_poison" && s.phase === "witch" && !s.elderDisabled && player.role === ROLE.WITCH && s.witch.poison && vals[0]) {
         s.actions.poison = vals[0]; s.witch.poison = false;
@@ -164,28 +169,37 @@ export class MasoiRoom extends DurableObject {
     return { ok: false, message: "Lựa chọn không hợp lệ." };
   }
   async startGame(s) {
-    // Kiểm tra toàn bộ DM trước khi phân vai để không ai bị lộ vai trò một phần.
-    for (const p of s.players) {
-      p.dmChannelId = await this.openDM(p.id);
-      if (!p.dmChannelId) {
-        s.status = "ended"; s.phase = "ended"; await this.state.storage.deleteAlarm();
-        await this.editLobby(s, { ...this.embed("⚠️ Không thể bắt đầu Ma Sói", `${mention(p.id)} hiện không nhận được DM từ bot. Hãy bật tin nhắn riêng từ thành viên server rồi tạo phòng mới.
-
-Phòng đã được đóng để tránh phân vai không đầy đủ.`), components: [] });
-        await this.state.storage.put("room", s); return;
+    s.status = "starting"; s.phase = "starting"; s.startStep = "open";
+    await this.save(s); await this.state.storage.setAlarm(Date.now() + 200);
+  }
+  async abortStart(s, text) {
+    s.status = "ended"; s.phase = "ended";
+    await this.state.storage.deleteAlarm();
+    await this.editLobby(s, { ...this.embed("⚠️ Không thể bắt đầu Ma Sói", `${text}\n\nPhòng đã được đóng. Hãy bật *Cho phép tin nhắn riêng từ thành viên server* rồi gõ /masoi để tạo phòng mới.`), components: [] });
+    await this.state.storage.put("room", s);
+  }
+  async startStep(s) {
+    // Bước 1: mở kênh tin nhắn riêng cho tất cả người chơi
+    if (s.startStep === "open") {
+      for (const p of s.players) {
+        p.dmChannelId = await this.openDM(p.id);
+        if (!p.dmChannelId) return this.abortStart(s, `Bot không mở được tin nhắn riêng với ${mention(p.id)}.`);
       }
+      s.startStep = "roles"; await this.save(s); await this.state.storage.setAlarm(Date.now() + 200); return;
     }
-    s.status = "playing"; s.phase = "starting";
+    // Bước 2: chia vai và gửi vai trò. Nếu có người không nhận được thì hủy cả ván (không ai bị thiếu vai)
     const roles = assignRoles(s.players.length);
     s.players.forEach((p, i) => { p.role = roles[i]; p.team = teamOf(p.role); p.alive = true; p.ready = false; p.elderLives = p.role === ROLE.ELDER ? 2 : 1; });
+    for (const p of s.players) {
+      const wolves = s.players.filter(x => isWolfRole(x.role) && x.id !== p.id).map(x => mention(x.id));
+      const ok = await this.dm(p.id, this.embed(`🎭 Vai trò của bạn: ${p.role}`, `${roleDescription(p.role)}${isWolfRole(p.role) ? `\n\nĐồng đội: ${wolves.join(", ") || "Không có"}` : ""}`));
+      if (!ok) return this.abortStart(s, `Bot không gửi được vai trò cho ${mention(p.id)} (đã tắt tin nhắn riêng).`);
+    }
+    s.status = "playing"; s.phase = "starting"; s.startStep = null;
     await this.save(s);
     const list = s.players.map((p, i) => `${i + 1}. ${mention(p.id)}`).join("\n");
     await this.editLobby(s, { embeds: [{ title: "🐺 Trò chơi bắt đầu!", description: `**Người chơi (${s.players.length}):**\n${list}\n\nVai trò đã được gửi riêng cho từng người.`, color: 0x35c4dc }], components: [] });
-    for (const p of s.players) {
-      const wolves = s.players.filter(x => [ROLE.WOLF, ROLE.CUB, ROLE.LONE_WOLF].includes(x.role) && x.id !== p.id).map(x => mention(x.id));
-      await this.dm(p.id, this.embed(`🎭 Vai trò của bạn: ${p.role}`, `${roleDescription(p.role)}${[ROLE.WOLF, ROLE.CUB, ROLE.LONE_WOLF].includes(p.role) ? `\n\nĐồng đội: ${wolves.join(", ") || "Không có"}` : ""}`));
-    }
-    await this.save(s); await this.startNight(s);
+    await this.startNight(s);
   }
   async startNight(s) {
     if (s.status !== "playing") return;
@@ -204,17 +218,17 @@ Phòng đã được đóng để tránh phân vai không đầy đủ.`), compo
       const pack = s.players.filter(x => [ROLE.WOLF, ROLE.CUB, ROLE.LONE_WOLF].includes(x.role) && x.id !== p.id).map(x => mention(x.id));
       await this.dm(p.id, this.embed("🌑 Lời nguyền đã thức tỉnh", `Bạn đã chuyển thành **Ma Sói**. Đồng đội: ${pack.join(", ") || "Không có"}.`));
     }
-    await this.sendChannel(s, this.embed(`🌙 Ban đêm đã buông xuống (Đêm ${s.night})`, "Các vai trò có kỹ năng hãy kiểm tra tin nhắn riêng và chọn hành động trong **25 giây**."));
+    await this.sendChannel(s, this.embed(`🌙 Ban đêm đã buông xuống (Đêm ${s.night})`, "Các vai trò có kỹ năng hãy kiểm tra tin nhắn riêng và chọn hành động trong **30 giây**."));
     const living = s.players.filter(p => p.alive);
     for (const p of living) {
       let action = null, opts = this.targetOptions(s, p.id);
       if (p.role === ROLE.CUPID && s.night === 1) action = this.select(`ms:${s.guildId}:role:cupid`, "Chọn 2 người làm Cặp Đôi", opts, 2, 2);
       else if (!s.elderDisabled && p.role === ROLE.GUARD) action = this.select(`ms:${s.guildId}:role:guard`, "Chọn người cần bảo vệ", opts.filter(o => o.value !== s.lastGuard));
-      else if ([ROLE.WOLF, ROLE.CUB, ROLE.LONE_WOLF].includes(p.role)) action = this.select(`ms:${s.guildId}:role:wolf`, "Bầy Sói chọn người cắn", opts, 1, s.doubleBite ? 2 : 1);
+      else if ([ROLE.WOLF, ROLE.CUB, ROLE.LONE_WOLF].includes(p.role)) action = this.select(`ms:${s.guildId}:role:wolf`, "Bầy Sói chọn người cắn", opts.filter(o => !isWolfRole(s.players.find(x => x.id === o.value)?.role)), 1, s.doubleBite ? 2 : 1);
       else if (!s.elderDisabled && p.role === ROLE.SEER) action = this.select(`ms:${s.guildId}:role:seer`, "Chọn người muốn soi", opts);
-      if (action) await this.dm(p.id, { content: `🌙 Đêm ${s.night}: hãy chọn hành động trong 25 giây.`, components: [{ type: 1, components: [action] }] });
+      if (action) await this.dm(p.id, { content: `🌙 Đêm ${s.night}: hãy chọn hành động trong 30 giây.`, components: [{ type: 1, components: [action] }] });
     }
-    await this.state.storage.setAlarm(Date.now() + ms(25));
+    await this.state.storage.setAlarm(Date.now() + ms(30));
   }
   async beginWitch(s) {
     s.phase = "witch";
@@ -283,7 +297,7 @@ Phòng đã được đóng để tránh phân vai không đầy đủ.`), compo
         await this.dm(special.id, this.embed("⚠️ Năng lực Dân Làng bị vô hiệu", "Già Làng đã bị treo cổ hoặc đầu độc. Kỹ năng đặc biệt của phe Dân không thể sử dụng từ thời điểm này."));
       }
     }
-    if (s.lovers.includes(id)) { const partner = s.lovers.find(x => x !== id); if (partner) { const lp = s.players.find(x => x.id === partner && x.alive); if (lp) { lp.alive = false; lp.deathCause = "lover"; lp.diedThisNight = p.diedThisNight; } } }
+    if (s.lovers.includes(id)) { const partner = s.lovers.find(x => x !== id); if (partner) { const lp = s.players.find(x => x.id === partner && x.alive); if (lp) { lp.alive = false; lp.deathCause = "lover"; lp.diedThisNight = p.diedThisNight; if (lp.role === ROLE.CUB) s.cubDied = true; } } }
   }
   async resolveDeaths(s) {
     const hunter = !s.elderDisabled ? s.players.find(p => !p.alive && p.role === ROLE.HUNTER && !p.hunterUsed) : null;
@@ -365,18 +379,24 @@ Phòng đã được đóng để tránh phân vai không đầy đủ.`), compo
   async finishGame(s, teamName, winners) {
     if (s.status === "ended") return;
     if (s.status !== "settling") {
-      s.status = "settling"; s.phase = "settling"; s.endTeam = teamName; s.winnerIds = winners;
+      s.status = "settling"; s.phase = "settling"; s.endTeam = teamName; s.winnerIds = winners; s.settleStartedAt = Date.now();
       await this.state.storage.setAlarm(Date.now() + 5000); await this.save(s);
     }
     teamName = s.endTeam || teamName; winners = s.winnerIds || winners;
     const winnerSet = new Set(winners);
     const gameId = `${s.guildId}:${s.createdAt}`;
     const linesWin = [], linesLoss = [];
+    const dayStart = Math.floor((Date.now() + VN_OFFSET) / DAY_MS) * DAY_MS - VN_OFFSET;
+    const ids = s.players.map(p => p.id);
+    const capRows = await this.env.DB.prepare(`SELECT user_id, COUNT(*) AS n FROM transactions WHERE type = 'masoi' AND created_at >= ? AND created_at < ? AND user_id IN (${ids.map(() => "?").join(",")}) GROUP BY user_id`).bind(dayStart, s.settleStartedAt || Date.now(), ...ids).all();
+    const played = Object.fromEntries((capRows.results || []).map(r => [r.user_id, r.n]));
     for (const p of s.players) {
       let amount = 0, win = winnerSet.has(p.id);
-      if (win) amount = 200;
-      else if (p.alive) amount = 10;
-      if (amount) {
+      const capped = (played[p.id] || 0) >= MAX_REWARD_GAMES_PER_DAY;
+      amount = win ? 200 : 10;
+      if (capped) {
+        (win ? linesWin : linesLoss).push(`${mention(p.id)}: ${p.role} (+0 Token Cá 🪙 — đã đạt giới hạn ${MAX_REWARD_GAMES_PER_DAY} ván thưởng hôm nay)`);
+      } else if (amount) {
         await this.env.DB.prepare("INSERT OR IGNORE INTO users (id, name, avatar, balance, created_at) VALUES (?, ?, NULL, 0, ?)").bind(p.id, p.name, Date.now()).run();
         await this.env.DB.batch([
           this.env.DB.prepare("INSERT OR IGNORE INTO masoi_payouts (game_id, user_id, amount) VALUES (?, ?, ?)").bind(gameId, p.id, amount),
@@ -403,6 +423,7 @@ Phòng đã được đóng để tránh phân vai không đầy đủ.`), compo
   async onAlarm() {
     const s = await this.get(); if (!s || s.status === "ended") return;
     if (s.status === "settling") return this.finishGame(s, s.endTeam, s.winnerIds || []);
+    if (s.status === "starting") return this.startStep(s);
     if (s.phase === "lobby") {
       const deadline = s.createdAt + 5 * 60 * 1000;
       if (Date.now() < deadline) { await this.state.storage.setAlarm(deadline); return; }
