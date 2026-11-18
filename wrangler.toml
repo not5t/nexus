@@ -2,6 +2,9 @@ name = "nexus"
 main = "worker.js"
 compatibility_date = "2026-11-18"
 
+# Giữ lại các biến Text đặt trong dashboard, nếu không mỗi lần build sẽ xóa chúng
+keep_vars = true
+
 # D1 Database hiện tại của NEXUS
 [[d1_databases]]
 binding = "DB"

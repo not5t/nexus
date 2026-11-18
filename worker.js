@@ -592,242 +592,114 @@ export default {
     if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: cors });
 
     try {
-     
-if (request.method === "POST" && url.pathname === "/interactions") {
-  const raw = await request.text();
-
-  if (!(await verifySignature(request, raw, env.DISCORD_PUBLIC_KEY))) {
-    return new Response("invalid request signature", { status: 401 });
-  }
-
-  const body = JSON.parse(raw);
-
-  // Discord PING
-  if (body.type === 1) {
-    return reply(200, { type: 1 });
-  }
-
-  // ==========================================
-  // MA SÓI: ACK NGAY, XỬ LÝ PHÒNG Ở BACKGROUND
-  // ==========================================
-  if (body.type === 2 && body.data?.name === masoiCommandJson.name) {
-    // type 5 = DEFERRED_CHANNEL_MESSAGE_WITH_SOURCE
-    // Không đặt flags:64 vì lobby cần hiển thị công khai.
-    const ack = reply(200, { type: 5 });
-
-    ctx.waitUntil((async () => {
-      const webhookUrl =
-        `https://discord.com/api/v10/webhooks/${body.application_id}/${body.token}/messages/@original`;
-
-      const editOriginal = async (payload) => {
-        return fetch(webhookUrl, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload)
-        });
-      };
-
-      try {
-        if (!env.MASOI_ROOMS || !env.DISCORD_BOT_TOKEN) {
-          await editOriginal({
-            content: "❌ Ma Sói chưa được cấu hình Durable Object hoặc DISCORD_BOT_TOKEN."
-          });
-          return;
+      if (request.method === "POST" && url.pathname === "/interactions") {
+        const raw = await request.text();
+        if (!(await verifySignature(request, raw, env.DISCORD_PUBLIC_KEY))) {
+          return new Response("invalid request signature", { status: 401 });
         }
-
-        if (!body.guild_id) {
-          await editOriginal({
-            content: "❌ Lệnh /masoi chỉ sử dụng được trong server Discord."
-          });
-          return;
+        const body = JSON.parse(raw);
+        if (body.type !== 1) {
+          await ensureSchema(env.DB);
+          if (body.id) {
+            const now = Date.now();
+            const receipt = await env.DB.prepare(
+              "INSERT OR IGNORE INTO interaction_receipts (interaction_id, created_at) VALUES (?, ?)"
+            ).bind(String(body.id), now).run();
+            if (receipt.meta.changes === 0) {
+              return reply(200, { type: 4, data: secret("Yêu cầu này đã được xử lý rồi.") });
+            }
+            await env.DB.prepare("DELETE FROM interaction_receipts WHERE created_at < ?").bind(now - DAY).run();
+          }
         }
+        const callback = await handleInteraction(body, env);
+        if (body.type === 2 && body.data?.name === masoiCommandJson.name && callback.type === 4 && callback.data?.components) {
+          const guildId = body.guild_id;
+          const stub = env.MASOI_ROOMS.get(env.MASOI_ROOMS.idFromName(guildId));
+          ctx.waitUntil((async () => {
+            try {
+              const msg = await fetch(`https://discord.com/api/v10/webhooks/${body.application_id}/${body.token}/messages/@original`);
+              if (msg.ok) { const data = await msg.json(); await stub.fetch("https://masoi.internal/bind", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ messageId: data.id }) }); }
+            } catch (e) { console.error("Không bind được tin nhắn lobby:", e); }
+          })());
+        }
+        if (body.type === 3) {
+          const customId = String(body.data?.custom_id || "");
+          const guildId = body.guild_id || customId.split(":")[1];
+          if (guildId && env.MASOI_ROOMS) {
+            const stub = env.MASOI_ROOMS.get(env.MASOI_ROOMS.idFromName(guildId));
+            ctx.waitUntil((async () => {
+              try {
+                const r = await stub.fetch("https://masoi.internal/interaction", { method: "POST", headers: { "Content-Type": "application/json" }, body: raw });
+                const out = await r.json();
+                if (out.message) await fetch(`https://discord.com/api/v10/webhooks/${body.application_id}/${body.token}/messages`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ content: out.message, flags: 64 }) });
+              } catch (e) { console.error("Lỗi component Ma Sói:", e); }
+            })());
+          }
+        }
+        return reply(200, callback);
+      }
 
-        // Chuẩn bị D1 sau khi đã ACK Discord.
+      if (request.method === "POST" && url.pathname === "/api/auth/exchange") {
+        await ensureSchema(env.DB);
+        let body = {};
+        try { body = await request.json(); } catch {}
+        const out = await exchangeOAuthCode(env, body);
+        const { status, ...rest } = out;
+        return reply(status, rest);
+      }
+
+      if (request.method === "POST" && url.pathname === "/api/auth/logout") {
+        await ensureSchema(env.DB);
+        const auth = await authenticate(request, env);
+        if (auth.status !== 200) return reply(auth.status, { error: auth.error });
+        await env.DB.prepare("DELETE FROM sessions WHERE token_hash = ?").bind(auth.tokenHash).run();
+        return reply(200, { ok: true });
+      }
+
+      if (request.method === "POST" && url.pathname.startsWith("/api/earn/")) {
+        await ensureSchema(env.DB);
+        const auth = await authenticate(request, env);
+        if (auth.status !== 200) return reply(auth.status, { error: auth.error });
+        let body = {};
+        try { body = await request.json(); } catch {}
+        const out =
+          url.pathname === "/api/earn/start" ? await earnStart(env, auth, String(body.provider || "")) :
+          url.pathname === "/api/earn/claim" ? await earnClaim(env, ctx, auth, String(body.token || ""), body.hash ? String(body.hash) : "") :
+          { status: 404, error: "Not found" };
+        const { status, ...rest } = out;
+        return reply(status, rest);
+      }
+
+      if (request.method === "GET") {
+        if (url.pathname === "/api/health") return reply(200, { ok: true });
         await ensureSchema(env.DB);
 
-        // Chống xử lý trùng interaction.
-        if (body.id) {
-          const now = Date.now();
+        if (url.pathname === "/api/stats") return reply(200, await getStats(env.DB));
 
-          const receipt = await env.DB.prepare(
-            "INSERT OR IGNORE INTO interaction_receipts (interaction_id, created_at) VALUES (?, ?)"
-          ).bind(String(body.id), now).run();
-
-          if (receipt.meta.changes === 0) {
-            await editOriginal({
-              content: "⚠️ Yêu cầu này đã được xử lý rồi."
-            });
-            return;
+        if (url.pathname === "/api/leaderboard") {
+          if (url.searchParams.get("type") === "links") {
+            return reply(200, { type: "links", top: await topLinkers(env.DB, 10) });
           }
-
-          await env.DB.prepare(
-            "DELETE FROM interaction_receipts WHERE created_at < ?"
-          ).bind(now - DAY).run();
+          return reply(200, { type: "tokens", currency: CFG.currency, top: await topPlayers(env.DB, 10) });
         }
 
-        const guildId = body.guild_id;
-        const stub = env.MASOI_ROOMS.get(
-          env.MASOI_ROOMS.idFromName(guildId)
-        );
-
-        const response = await stub.fetch(
-          "https://masoi.internal/create",
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              guildId,
-              channelId: body.channel_id,
-              hostId: body.member?.user?.id || body.user?.id,
-              hostName:
-                body.member?.user?.global_name ||
-                body.member?.user?.username ||
-                body.user?.username,
-              applicationId: body.application_id,
-              interactionToken: body.token
-            })
-          }
-        );
-
-        const result = await response.json();
-
-        if (!response.ok || !result.ok) {
-          const message =
-            result.error === "already_exists"
-              ? "❌ Server này đã có một phòng Ma Sói đang chờ hoặc đang chơi."
-              : "❌ Không thể tạo phòng Ma Sói lúc này.";
-
-          await editOriginal({ content: message });
-          return;
+        if (url.pathname === "/api/earn/status") {
+          const auth = await authenticate(request, env);
+          if (auth.status !== 200) return reply(auth.status, { error: auth.error });
+          return reply(200, await earnStatus(env, auth));
         }
 
-        // Cập nhật phản hồi đã defer thành lobby công khai.
-        const edited = await editOriginal(result.response);
-
-        if (!edited.ok) {
-          console.error(
-            "Không thể hiển thị lobby:",
-            edited.status,
-            await edited.text()
-          );
-          return;
-        }
-
-        // Lưu message ID để Durable Object cập nhật lobby về sau.
-        const message = await edited.json();
-
-        if (message.id) {
-          await stub.fetch("https://masoi.internal/bind", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ messageId: message.id })
-          });
-        }
-
-      } catch (e) {
-        console.error("Lỗi tạo phòng Ma Sói:", e);
-
-        try {
-          await editOriginal({
-            content: "❌ Có lỗi khi tạo phòng Ma Sói. Hãy thử lại sau."
-          });
-        } catch (editError) {
-          console.error("Không thể gửi thông báo lỗi:", editError);
+        if (url.pathname === "/api/me") {
+          const auth = await authenticate(request, env);
+          if (auth.status !== 200) return reply(auth.status, { error: auth.error });
+          return reply(200, await getWallet(env.DB, auth.userId));
         }
       }
-    })());
 
-    return ack;
-  }
-
-  // ==========================================
-  // COMPONENT MA SÓI: ACK TRƯỚC, XỬ LÝ SAU
-  // ==========================================
-  if (body.type === 3) {
-    const customId = String(body.data?.custom_id || "");
-    const guildId = body.guild_id || customId.split(":")[1];
-
-    if (!guildId || !env.MASOI_ROOMS) {
-      return reply(200, {
-        type: 4,
-        data: secret("Phòng Ma Sói không còn khả dụng.")
-      });
+      return reply(404, { error: "Not found" });
+    } catch (err) {
+      console.error("Lỗi:", err);
+      return reply(500, { error: "Server error" });
     }
-
-    // type 6 = DEFERRED_UPDATE_MESSAGE
-    const ack = reply(200, { type: 6 });
-
-    ctx.waitUntil((async () => {
-      try {
-        const stub = env.MASOI_ROOMS.get(
-          env.MASOI_ROOMS.idFromName(guildId)
-        );
-
-        const r = await stub.fetch(
-          "https://masoi.internal/interaction",
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: raw
-          }
-        );
-
-        const out = await r.json();
-
-        // Phản hồi riêng cho người bấm nút.
-        if (out.message) {
-          const followup = await fetch(
-            `https://discord.com/api/v10/webhooks/${body.application_id}/${body.token}`,
-            {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                content: out.message,
-                flags: 64
-              })
-            }
-          );
-
-          if (!followup.ok) {
-            console.error(
-              "Không gửi được phản hồi Ma Sói:",
-              await followup.text()
-            );
-          }
-        }
-      } catch (e) {
-        console.error("Lỗi component Ma Sói:", e);
-      }
-    })());
-
-    return ack;
-  }
-
-  // ==========================================
-  // CÁC LỆNH DISCORD CŨ
-  // ==========================================
-  await ensureSchema(env.DB);
-
-  if (body.id) {
-    const now = Date.now();
-
-    const receipt = await env.DB.prepare(
-      "INSERT OR IGNORE INTO interaction_receipts (interaction_id, created_at) VALUES (?, ?)"
-    ).bind(String(body.id), now).run();
-
-    if (receipt.meta.changes === 0) {
-      return reply(200, {
-        type: 4,
-        data: secret("Yêu cầu này đã được xử lý rồi.")
-      });
-    }
-
-    await env.DB.prepare(
-      "DELETE FROM interaction_receipts WHERE created_at < ?"
-    ).bind(now - DAY).run();
-  }
-
-  const callback = await handleInteraction(body, env);
-  return reply(200, callback);
-}
-
+  },
+};
