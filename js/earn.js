@@ -1,4 +1,4 @@
-// NEXUS v0.6c - Trang Kiếm Token Cá (vượt link). Dùng loadUser/getToken/login (auth.js), getApiUrl (dashboard.js), formatWait (wallet.js)
+// NEXUS v0.7.1 - Trang Kiếm Token Cá (vượt link). Dùng loadUser/getToken/login (auth.js), getApiUrl (dashboard.js), formatWait (wallet.js)
 const earnUi = {
   box: document.getElementById("earn-content"),
   tag: document.getElementById("earn-tag"),

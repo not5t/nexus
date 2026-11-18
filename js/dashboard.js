@@ -147,11 +147,10 @@ function renderRecent(list) {
 }
 
 function renderOnline(data) {
-  const bot = data.bot || {};
+  const api = data.api || {};
   const eco = data.economy || {};
 
-  const ping = bot.pingMs > 0 ? " · " + bot.pingMs + "ms" : "";
-  setStatus(bot.online ? "HOẠT ĐỘNG" : "MẤT KẾT NỐI", bot.online ? "status-online" : "status-offline", (bot.tag || "NEXUS") + ping);
+  setStatus(api.online ? "API HOẠT ĐỘNG" : "MẤT KẾT NỐI", api.online ? "status-online" : "status-offline", api.tag || "NEXUS Worker");
 
   ui.players.textContent = fmt(eco.players);
   ui.playersNote.textContent = "Người chơi đã có ví";

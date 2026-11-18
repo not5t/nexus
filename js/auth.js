@@ -1,4 +1,5 @@
-// NEXUS - Đăng nhập Discord (OAuth2 implicit, scope "identify")
+// NEXUS v0.7.1 - Discord OAuth2 Authorization Code + PKCE.
+// Discord access token stays on the Worker; browser stores only an opaque NEXUS session token.
 const CONFIG = {
   clientId: "1571569716126814399",
   redirectUri: "https://not5t.github.io/nexus/",
@@ -7,6 +8,7 @@ const CONFIG = {
 const USER_KEY = "nexus_user";
 const TOKEN_KEY = "nexus_token";
 const STATE_KEY = "nexus_oauth_state";
+const VERIFIER_KEY = "nexus_pkce_verifier";
 
 const els = {
   avatar: document.getElementById("user-avatar"),
@@ -17,106 +19,60 @@ const els = {
   eyebrow: document.querySelector(".eyebrow"),
 };
 
-function randomState() {
-  const bytes = new Uint8Array(16);
-  crypto.getRandomValues(bytes);
-  return Array.from(bytes, b => b.toString(16).padStart(2, "0")).join("");
+function authApiUrl() {
+  try {
+    const configured = typeof NEXUS_API_URL === "string" ? NEXUS_API_URL : "";
+    const saved = localStorage.getItem("nexus_api_url") || "";
+    const url = new URL(configured || saved);
+    return url.protocol === "https:" ? url.origin : "";
+  } catch { return ""; }
 }
 
-function login() {
-  const state = randomState();
+function randomHex(bytes = 16) {
+  const data = crypto.getRandomValues(new Uint8Array(bytes));
+  return Array.from(data, b => b.toString(16).padStart(2, "0")).join("");
+}
+
+function base64Url(bytes) {
+  let binary = "";
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+}
+
+async function createChallenge(verifier) {
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(verifier));
+  return base64Url(new Uint8Array(digest));
+}
+
+async function login() {
+  const api = authApiUrl();
+  if (!api) {
+    alert("Chưa cấu hình API NEXUS. Hãy kiểm tra js/config.js.");
+    return;
+  }
+  const state = randomHex(16);
+  const verifier = base64Url(crypto.getRandomValues(new Uint8Array(32)));
+  const challenge = await createChallenge(verifier);
   sessionStorage.setItem(STATE_KEY, state);
+  sessionStorage.setItem(VERIFIER_KEY, verifier);
 
   const params = new URLSearchParams({
     client_id: CONFIG.clientId,
     redirect_uri: CONFIG.redirectUri,
-    response_type: "token",
+    response_type: "code",
     scope: "identify",
-    state: state,
-    prompt: "none",
+    state,
+    code_challenge: challenge,
+    code_challenge_method: "S256",
   });
-
   location.href = "https://discord.com/oauth2/authorize?" + params.toString();
-}
-
-function avatarUrl(user) {
-  if (user.avatar) {
-    const ext = user.avatar.startsWith("a_") ? "gif" : "png";
-    return `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.${ext}?size=128`;
-  }
-  const index = Number((BigInt(user.id) >> 22n) % 6n);
-  return `https://cdn.discordapp.com/embed/avatars/${index}.png`;
-}
-
-// Discord quay lại trang với #access_token=... trên URL
-async function handleCallback() {
-  const hash = location.hash;
-  if (!hash.includes("access_token") && !hash.includes("error=")) return;
-
-  const params = new URLSearchParams(hash.slice(1));
-  // Xóa token khỏi thanh địa chỉ ngay lập tức
-  history.replaceState(null, "", location.pathname + location.search);
-
-  const expected = sessionStorage.getItem(STATE_KEY);
-  sessionStorage.removeItem(STATE_KEY);
-
-  const token = params.get("access_token");
-  if (!token || !expected || params.get("state") !== expected) return;
-
-  try {
-    const res = await fetch("https://discord.com/api/users/@me", {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (!res.ok) throw new Error("HTTP " + res.status);
-    const u = await res.json();
-
-    localStorage.setItem(USER_KEY, JSON.stringify({
-      id: u.id,
-      name: u.global_name || u.username,
-      avatar: avatarUrl(u),
-    }));
-
-    // Token chỉ có quyền "identify" (đọc tên/avatar/id), dùng để bot xác minh bạn là ai.
-    // Token tự hết hạn (~7 ngày) và bị xóa khi đăng xuất.
-    const expiresIn = Number(params.get("expires_in")) || 0;
-    localStorage.setItem(TOKEN_KEY, JSON.stringify({
-      token: token,
-      expiresAt: Date.now() + expiresIn * 1000,
-    }));
-  } catch (err) {
-    console.error("Đăng nhập Discord thất bại:", err);
-  }
-}
-
-function getToken() {
-  try {
-    const saved = JSON.parse(localStorage.getItem(TOKEN_KEY));
-    if (saved && saved.token && saved.expiresAt > Date.now() + 60000) return saved.token;
-  } catch {}
-  return null;
-}
-
-function clearToken() {
-  try {
-    localStorage.removeItem(TOKEN_KEY);
-  } catch {}
-}
-
-function loadUser() {
-  try {
-    const user = JSON.parse(localStorage.getItem(USER_KEY));
-    return user && user.id && user.name ? user : null;
-  } catch {
-    return null;
-  }
 }
 
 function render(user) {
   els.avatar.textContent = "";
-
   if (user) {
     const img = document.createElement("img");
-    img.src = user.avatar;
+    img.src = user.avatar || "";
     img.alt = "";
     els.avatar.appendChild(img);
     els.avatar.classList.add("has-img");
@@ -131,13 +87,71 @@ function render(user) {
     els.id.hidden = true;
     els.eyebrow.textContent = "CHÀO MỪNG ĐẾN NEXUS";
   }
-
   els.login.hidden = !!user;
   els.logout.hidden = !user;
 }
 
+async function handleCallback() {
+  const params = new URLSearchParams(location.search);
+  const code = params.get("code");
+  const returnedState = params.get("state");
+  if (!code && !params.has("error")) return;
+  history.replaceState(null, "", location.pathname + location.hash);
+
+  const expectedState = sessionStorage.getItem(STATE_KEY);
+  const verifier = sessionStorage.getItem(VERIFIER_KEY);
+  sessionStorage.removeItem(STATE_KEY);
+  sessionStorage.removeItem(VERIFIER_KEY);
+  if (params.has("error")) throw new Error("Discord OAuth: " + params.get("error"));
+  if (!code || !expectedState || returnedState !== expectedState || !verifier) throw new Error("OAuth state không hợp lệ.");
+
+  const api = authApiUrl();
+  if (!api) throw new Error("Chưa cấu hình API NEXUS.");
+  const res = await fetch(api + "/api/auth/exchange", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ code, codeVerifier: verifier, redirectUri: CONFIG.redirectUri }),
+    cache: "no-store",
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || !data.sessionToken || !data.user) throw new Error(data.error || "Không thể hoàn tất đăng nhập.");
+
+  localStorage.setItem(USER_KEY, JSON.stringify(data.user));
+  localStorage.setItem(TOKEN_KEY, JSON.stringify({ token: data.sessionToken, expiresAt: data.expiresAt }));
+}
+
+function getToken() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(TOKEN_KEY));
+    if (saved && /^[0-9a-f]{64}$/i.test(saved.token || "") && saved.expiresAt > Date.now() + 30000) return saved.token;
+  } catch {}
+  return null;
+}
+
+function clearToken() {
+  try { localStorage.removeItem(TOKEN_KEY); } catch {}
+}
+
+function loadUser() {
+  try {
+    const user = JSON.parse(localStorage.getItem(USER_KEY));
+    return user && user.id && user.name ? user : null;
+  } catch { return null; }
+}
+
 els.login.addEventListener("click", login);
-els.logout.addEventListener("click", () => {
+els.logout.addEventListener("click", async () => {
+  const token = getToken();
+  const api = authApiUrl();
+  if (token && api) {
+    try {
+      await fetch(api + "/api/auth/logout", {
+        method: "POST",
+        headers: { Authorization: "Bearer " + token },
+        cache: "no-store",
+      });
+    } catch (err) { console.warn("Không thu hồi được phiên trên server:", err); }
+  }
   localStorage.removeItem(USER_KEY);
   clearToken();
   render(null);
@@ -145,7 +159,12 @@ els.logout.addEventListener("click", () => {
 });
 
 (async () => {
-  await handleCallback();
+  try {
+    await handleCallback();
+  } catch (err) {
+    console.error("Đăng nhập Discord thất bại:", err);
+  }
+  if (!getToken()) localStorage.removeItem(USER_KEY); // loại phiên OAuth cũ của bản trước
   render(loadUser());
   document.dispatchEvent(new Event("nexus:auth"));
 })();

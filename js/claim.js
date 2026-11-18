@@ -25,7 +25,9 @@ function readToken() {
 
 function readApi() {
   try {
-    const url = new URL(localStorage.getItem("nexus_api_url") || "");
+    const configured = typeof NEXUS_API_URL === "string" ? NEXUS_API_URL : "";
+    const saved = localStorage.getItem("nexus_api_url") || "";
+    const url = new URL(configured || saved);
     return url.protocol === "https:" ? url.origin : "";
   } catch {
     return "";
