@@ -1,0 +1,19 @@
+name = "nexus"
+main = "worker.js"
+compatibility_date = "2026-11-18"
+
+# D1 Database hiện tại của NEXUS
+[[d1_databases]]
+binding = "DB"
+database_name = "nexus-db"
+database_id = "50c780a9-358b-464f-b4d6-67b472192836"
+
+# Durable Object cho minigame Ma Sói
+[[durable_objects.bindings]]
+name = "MASOI_ROOMS"
+class_name = "MasoiRoom"
+
+# Khai báo Durable Object SQLite
+[exports.MasoiRoom]
+type = "durable-object"
+storage = "sqlite"
