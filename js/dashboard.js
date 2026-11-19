@@ -148,7 +148,7 @@ function renderRecent(list) {
 }
 
 function renderOnline(data) {
-  const bot = data.bot || {};
+  const bot = data.bot || data.api || {};
   const eco = data.economy || {};
 
   const ping = bot.pingMs > 0 ? " · " + bot.pingMs + "ms" : "";
