@@ -9,6 +9,40 @@ const mention = id => `<@${id}>`;
 const isWolfRole = r => r === ROLE.WOLF || r === ROLE.CUB || r === ROLE.LONE_WOLF;
 const MAX_REWARD_GAMES_PER_DAY = 10; // chống lập tài khoản phụ để cày thưởng
 const VN_OFFSET = 7 * 3600e3, DAY_MS = 86400e3;
+// ================= GIAO DIỆN EMBED =================
+const TW = cp => `https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/72x72/${cp}.png`; // biểu tượng lớn cạnh tiêu đề
+const STYLE = {
+  "1f43a": { c: 0x5865f2, t: "1f43a" }, "1f319": { c: 0x312e81, t: "1f319" }, "2600": { c: 0xfbbf24, t: "1f305" },
+  "1f5e3": { c: 0x38bdf8, t: "1f4ac" }, "1f5f3": { c: 0xef4444, t: "1f5f3" }, "2696": { c: 0xef4444, t: "2696" },
+  "1f3f9": { c: 0xf97316, t: "1f3f9" }, "1f4ca": { c: 0x38bdf8, t: "1f4ca" }, "1f3c6": { c: 0x22c55e, t: "1f3c6" },
+  "1f52e": { c: 0xa855f7, t: "1f52e" }, "1f49e": { c: 0xec4899, t: "1f498" }, "1f9ea": { c: 0x10b981, t: "1f9ea" },
+  "26a0": { c: 0xf59e0b, t: "26a0" }, "231b": { c: 0x64748b, t: "231b" }, "274c": { c: 0x64748b, t: "274c" },
+  "1f3ad": { c: 0x5865f2, t: "1f3ad" }, "1f311": { c: 0x7f1d1d, t: "1f9df" },
+};
+const VILLAGE_GOAL = "Tìm ra và treo cổ toàn bộ Ma Sói.";
+const WOLF_GOAL = "Cắn dần Dân Làng cho tới khi số Sói không ít hơn số người còn lại.";
+const ROLE_STYLE = {
+  [ROLE.VILLAGER]: { e: "🧑‍🌾", cp: "1f9d1-200d-1f33e", c: 0x57f287, team: "🏘️ Phe Dân Làng", goal: VILLAGE_GOAL },
+  [ROLE.SEER]: { e: "🔮", cp: "1f52e", c: 0xa855f7, team: "🏘️ Phe Dân Làng", goal: VILLAGE_GOAL },
+  [ROLE.GUARD]: { e: "🛡️", cp: "1f6e1", c: 0x3b82f6, team: "🏘️ Phe Dân Làng", goal: VILLAGE_GOAL },
+  [ROLE.WITCH]: { e: "🧪", cp: "1f9ea", c: 0x10b981, team: "🏘️ Phe Dân Làng", goal: VILLAGE_GOAL },
+  [ROLE.HUNTER]: { e: "🏹", cp: "1f3f9", c: 0xf97316, team: "🏘️ Phe Dân Làng", goal: VILLAGE_GOAL },
+  [ROLE.ELDER]: { e: "👴", cp: "1f474", c: 0xd4a373, team: "🏘️ Phe Dân Làng", goal: VILLAGE_GOAL },
+  [ROLE.CURSED]: { e: "🧟", cp: "1f9df", c: 0x84cc16, team: "🏘️ Phe Dân Làng (có thể hóa Sói)", goal: VILLAGE_GOAL },
+  [ROLE.WOLF]: { e: "🐺", cp: "1f43a", c: 0xed4245, team: "🐺 Phe Ma Sói", goal: WOLF_GOAL },
+  [ROLE.CUB]: { e: "🐾", cp: "1f43e", c: 0xf87171, team: "🐺 Phe Ma Sói", goal: WOLF_GOAL },
+  [ROLE.LONE_WOLF]: { e: "🌑", cp: "1f311", c: 0x7f1d1d, team: "🐺 Sói đơn độc", goal: "Là người sống sót cuối cùng." },
+  [ROLE.CUPID]: { e: "💘", cp: "1f498", c: 0xec4899, team: "✨ Phe thứ 3", goal: "Ghép đôi. Nếu cặp đôi khác phe, họ thắng khi chỉ còn hai người sống." },
+  [ROLE.JESTER]: { e: "🤪", cp: "1f92a", c: 0xf59e0b, team: "✨ Phe thứ 3", goal: "Bị Dân Làng treo cổ vào ban ngày." },
+};
+const eta = sec => `<t:${Math.floor(Date.now() / 1000) + sec}:R>`; // đồng hồ đếm ngược của Discord
+const bar = (n, max, len = 10) => { const f = Math.max(0, Math.min(len, Math.round((n / (max || 1)) * len))); return "▰".repeat(f) + "▱".repeat(len - f); };
+const foot = (s, extra = "") => ({ text: `Ma Sói • Đêm ${s.night || 0} • ${s.players.filter(p => p.alive).length}/${s.players.length} người còn sống${extra}` });
+const rosterFields = s => {
+  const alive = s.players.filter(p => p.alive).map(p => `🟢 ${mention(p.id)}`).join("\n") || "—";
+  const dead = s.players.filter(p => !p.alive).map(p => `💀 ${mention(p.id)}`).join("\n");
+  return [{ name: `🟢 Còn sống (${s.players.filter(p => p.alive).length})`, value: alive.slice(0, 1024), inline: true }, ...(dead ? [{ name: `💀 Đã ngã xuống (${s.players.filter(p => !p.alive).length})`, value: dead.slice(0, 1024), inline: true }] : [])];
+};
 const json = (data, status = 200) => new Response(JSON.stringify(data), { status, headers: { "content-type": "application/json" } });
 
 export class MasoiRoom extends DurableObject {
@@ -64,7 +98,46 @@ export class MasoiRoom extends DurableObject {
     if (!channelId) return false;
     return (await this.api(`/channels/${channelId}/messages`, "POST", data)).ok;
   }
-  embed(title, description, extra = {}) { return { embeds: [{ title, description, color: 0x35c4dc, ...extra }] }; }
+  embed(title, description, extra = {}) {
+    const cp = [...String(title).trim()][0]?.codePointAt(0)?.toString(16);
+    const st = STYLE[cp] || { c: 0x35c4dc };
+    return { embeds: [{ author: { name: "NEXUS • Ma Sói" }, title, description, color: st.c, ...(st.t ? { thumbnail: { url: TW(st.t) } } : {}), footer: { text: "Ma Sói • NEXUS" }, timestamp: new Date().toISOString(), ...extra }] };
+  }
+  roleCard(p, wolves = []) {
+    const st = ROLE_STYLE[p.role] || {};
+    const fields = [
+      { name: "🏷️ Phe", value: st.team || "—", inline: true },
+      { name: "🎯 Mục tiêu", value: st.goal || "—", inline: true },
+      { name: "✨ Kỹ năng", value: roleDescription(p.role) },
+    ];
+    if (isWolfRole(p.role)) fields.push({ name: "🐺 Đồng đội", value: wolves.join(", ") || "Bạn hành động một mình." });
+    return this.embed(`🎭 Vai trò của bạn: ${p.role}`, `${st.e || "🎭"} Bạn là **${p.role}**.\n🤫 Hãy giữ bí mật vai trò của mình!`, { color: st.c || 0x5865f2, thumbnail: { url: TW(st.cp || "1f3ad") }, fields });
+  }
+  lobbyEmbed(s) {
+    const n = s.players.length, ready = s.players.filter(p => p.ready).length;
+    const host = s.players.find(p => p.id === s.hostId)?.name || "Người chơi";
+    const list = s.players.map(p => `${p.id === s.hostId ? "👑" : "▫️"} ${mention(p.id)} ${p.ready ? "✅" : "⏳"}`).join("\n");
+    return { author: { name: "NEXUS • Ma Sói" }, title: "🐺 Đang tạo phòng Ma Sói", color: 0x5865f2, thumbnail: { url: TW("1f43a") },
+      description: `Dân làng đang tụ họp quanh đống lửa...\nBấm **Tham gia** để vào phòng và **Sẵn sàng** khi bạn đã chuẩn bị.\n\n${list}`,
+      fields: [
+        { name: "👥 Thành viên", value: `${bar(n, MAX)}\n**${n}/${MAX}**`, inline: true },
+        { name: "✅ Sẵn sàng", value: `${bar(ready, n)}\n**${ready}/${n}**`, inline: true },
+        { name: "⏳ Tự hủy", value: `<t:${Math.floor((s.createdAt + 5 * 60 * 1000) / 1000)}:R>`, inline: true },
+        { name: "📜 Điều kiện bắt đầu", value: `Có từ **${MIN}** người trở lên và ít nhất **${MIN}** người bấm Sẵn sàng.` },
+      ],
+      footer: { text: `Chủ phòng: ${host} • Tối đa ${MAX} người` }, timestamp: new Date().toISOString() };
+  }
+  startEmbed(s) {
+    const list = s.players.map((p, i) => `\`${String(i + 1).padStart(2, "0")}\` ${mention(p.id)}`).join("\n");
+    return { author: { name: "NEXUS • Ma Sói" }, title: "🐺 Trò chơi bắt đầu!", color: 0xed4245, thumbnail: { url: TW("1f43a") },
+      description: "Đêm đầu tiên sắp buông xuống...\nHãy kiểm tra **tin nhắn riêng** từ bot để biết vai trò của bạn.",
+      fields: [
+        { name: `👥 Người chơi (${s.players.length})`, value: list.slice(0, 1024) },
+        { name: "⏱️ Nhịp ván", value: "🌙 Đêm **30s** • 🗣️ Thảo luận **60s** • 🗳️ Bỏ phiếu **30s**" },
+        { name: "🪙 Phần thưởng", value: "Phe thắng **+200** • Phe thua **+10** Token Cá 🪙" },
+      ],
+      footer: { text: "Chúc mọi người chơi vui vẻ!" }, timestamp: new Date().toISOString() };
+  }
   buttons(rows) { return rows; }
   button(label, custom_id, style = 1, disabled = false) { return { type: 2, style, label, custom_id, disabled }; }
   select(custom_id, placeholder, options, min_values = 1, max_values = 1) { return { type: 3, custom_id, placeholder, min_values, max_values, options: options.slice(0, 25) }; }
@@ -84,7 +157,7 @@ export class MasoiRoom extends DurableObject {
     const ready = s.players.filter(p => p.ready).length;
     const desc = `👥 Thành viên: **${s.players.length}/${MAX}**\n✅ Sẵn sàng: **${ready}/${s.players.length}**\n\nCần ít nhất **${MIN} người**. Phòng tự hủy sau **5 phút** nếu chưa bắt đầu.`;
     const prefix = `ms:${s.guildId}:`;
-    return { embeds: [{ title: "🐺 Đang tạo phòng Ma Sói", description: desc, color: 0x35c4dc, footer: { text: `Chủ phòng: ${s.players.find(p => p.id === s.hostId)?.name || "Người chơi"} • Tự hủy sau 5 phút` } }], components: [{ type: 1, components: [this.button("Tham gia", prefix + "join", 3), this.button("Rời khỏi", prefix + "leave", 2), this.button("Sẵn sàng", prefix + "ready", 1), this.button("Hủy phòng", prefix + "cancel", 4)] }] };
+    return { embeds: [this.lobbyEmbed(s)], components: [{ type: 1, components: [this.button("Tham gia", prefix + "join", 3), this.button("Rời khỏi", prefix + "leave", 2), this.button("Sẵn sàng", prefix + "ready", 1), this.button("Hủy phòng", prefix + "cancel", 4)] }] };
   }
   async interaction(b) {
     const d = b.data || {}, id = b.member?.user?.id || b.user?.id;
@@ -192,13 +265,13 @@ export class MasoiRoom extends DurableObject {
     s.players.forEach((p, i) => { p.role = roles[i]; p.team = teamOf(p.role); p.alive = true; p.ready = false; p.elderLives = p.role === ROLE.ELDER ? 2 : 1; });
     for (const p of s.players) {
       const wolves = s.players.filter(x => isWolfRole(x.role) && x.id !== p.id).map(x => mention(x.id));
-      const ok = await this.dm(p.id, this.embed(`🎭 Vai trò của bạn: ${p.role}`, `${roleDescription(p.role)}${isWolfRole(p.role) ? `\n\nĐồng đội: ${wolves.join(", ") || "Không có"}` : ""}`));
+      const ok = await this.dm(p.id, this.roleCard(p, wolves));
       if (!ok) return this.abortStart(s, `Bot không gửi được vai trò cho ${mention(p.id)} (đã tắt tin nhắn riêng).`);
     }
     s.status = "playing"; s.phase = "starting"; s.startStep = null;
     await this.save(s);
     const list = s.players.map((p, i) => `${i + 1}. ${mention(p.id)}`).join("\n");
-    await this.editLobby(s, { embeds: [{ title: "🐺 Trò chơi bắt đầu!", description: `**Người chơi (${s.players.length}):**\n${list}\n\nVai trò đã được gửi riêng cho từng người.`, color: 0x35c4dc }], components: [] });
+    await this.editLobby(s, { embeds: [this.startEmbed(s)], components: [] });
     await this.startNight(s);
   }
   async startNight(s) {
@@ -218,7 +291,7 @@ export class MasoiRoom extends DurableObject {
       const pack = s.players.filter(x => [ROLE.WOLF, ROLE.CUB, ROLE.LONE_WOLF].includes(x.role) && x.id !== p.id).map(x => mention(x.id));
       await this.dm(p.id, this.embed("🌑 Lời nguyền đã thức tỉnh", `Bạn đã chuyển thành **Ma Sói**. Đồng đội: ${pack.join(", ") || "Không có"}.`));
     }
-    await this.sendChannel(s, this.embed(`🌙 Ban đêm đã buông xuống (Đêm ${s.night})`, "Các vai trò có kỹ năng hãy kiểm tra tin nhắn riêng và chọn hành động trong **30 giây**."));
+    await this.sendChannel(s, this.embed(`🌙 Ban đêm đã buông xuống (Đêm ${s.night})`, "Cả làng chìm vào giấc ngủ... 🌌\nCác vai trò có kỹ năng hãy kiểm tra **tin nhắn riêng** và chọn hành động.", { fields: [{ name: "⏳ Hết đêm", value: eta(30), inline: true }, { name: "👥 Còn sống", value: `**${s.players.filter(p => p.alive).length}**/${s.players.length}`, inline: true }], footer: foot(s) }));
     const living = s.players.filter(p => p.alive);
     for (const p of living) {
       let action = null, opts = this.targetOptions(s, p.id);
@@ -226,7 +299,9 @@ export class MasoiRoom extends DurableObject {
       else if (!s.elderDisabled && p.role === ROLE.GUARD) action = this.select(`ms:${s.guildId}:role:guard`, "Chọn người cần bảo vệ", opts.filter(o => o.value !== s.lastGuard));
       else if ([ROLE.WOLF, ROLE.CUB, ROLE.LONE_WOLF].includes(p.role)) action = this.select(`ms:${s.guildId}:role:wolf`, "Bầy Sói chọn người cắn", opts.filter(o => !isWolfRole(s.players.find(x => x.id === o.value)?.role)), 1, s.doubleBite ? 2 : 1);
       else if (!s.elderDisabled && p.role === ROLE.SEER) action = this.select(`ms:${s.guildId}:role:seer`, "Chọn người muốn soi", opts);
-      if (action) await this.dm(p.id, { content: `🌙 Đêm ${s.night}: hãy chọn hành động trong 30 giây.`, components: [{ type: 1, components: [action] }] });
+      const tip = { [ROLE.CUPID]: "Chọn **2 người** để ghép thành Cặp Đôi.", [ROLE.GUARD]: "Chọn người bạn muốn bảo vệ đêm nay (không được chọn lại người đã bảo vệ đêm trước).", [ROLE.SEER]: "Chọn người bạn muốn soi (mỗi đêm chỉ soi **1 lần**)." }[p.role] || `Chọn người bầy Sói sẽ cắn đêm nay.${s.doubleBite ? "\n⚠️ Sói Con đã chết: đêm nay được cắn **2 người**." : ""}`;
+const rs = ROLE_STYLE[p.role] || {};
+if (action) await this.dm(p.id, { ...this.embed(`🌙 Đêm ${s.night} — Lượt của ${p.role}`, tip, { color: rs.c || 0x312e81, thumbnail: { url: TW(rs.cp || "1f319") }, fields: [{ name: "⏳ Hết giờ", value: eta(30), inline: true }], footer: foot(s) }), components: [{ type: 1, components: [action] }] });
     }
     await this.state.storage.setAlarm(Date.now() + ms(30));
   }
@@ -255,7 +330,7 @@ export class MasoiRoom extends DurableObject {
       if (comps.length) rows.push({ type: 1, components: comps });
       const poisonTargets = this.targetOptions(s, witch.id);
       if (s.witch.poison && poisonTargets.length) rows.push({ type: 1, components: [this.select(`ms:${s.guildId}:role:witch_poison`, "Chọn người muốn đầu độc", poisonTargets)] });
-      await this.dm(witch.id, { ...this.embed("🧪 Lượt của Phù Thủy", desc), components: rows });
+      await this.dm(witch.id, { ...this.embed("🧪 Lượt của Phù Thủy", desc, { fields: [{ name: "💊 Bình Cứu", value: s.witch.save ? "Còn" : "Đã dùng", inline: true }, { name: "☠️ Bình Độc", value: s.witch.poison ? "Còn" : "Đã dùng", inline: true }, { name: "⏳ Hết giờ", value: eta(15), inline: true }] }), components: rows });
     }
     await this.save(s); await this.state.storage.setAlarm(Date.now() + ms(15));
   }
@@ -280,11 +355,11 @@ export class MasoiRoom extends DurableObject {
     const seer = s.players.find(p => p.alive && p.role === ROLE.SEER);
     if (seer && s.actions.seer) { /* result was sent when chosen */ }
     const msg = s.players.filter(p => !p.alive && p.diedThisNight).map(p => `${mention(p.id)} đã không thể thức dậy nữa.`);
-    await this.sendChannel(s, this.embed("☀️ Trời sáng rồi, mọi người thức dậy đi!", msg.length ? `💀 Có người đã không thể thức dậy được nữa:\n${msg.join("\n")}` : "🌅 Trời sáng nhưng không ai phải ra đi."));
+    await this.sendChannel(s, this.embed("☀️ Trời sáng rồi, mọi người thức dậy đi!", msg.length ? `💀 Có người đã không thể thức dậy được nữa:\n${msg.join("\n")}` : "🌅 Trời sáng nhưng không ai phải ra đi.", { footer: foot(s) }));
     s.players.forEach(p => { p.diedThisNight = false; });
     if (await this.checkWin(s)) return;
     s.day++; s.phase = "discussion"; await this.save(s);
-    await this.sendChannel(s, this.embed(`🗣️ Thảo luận ngày ${s.day}`, "Mọi người có **60 giây** để thảo luận và tìm Ma Sói."));
+    await this.sendChannel(s, this.embed(`🗣️ Thảo luận ngày ${s.day}`, "Mọi người có **60 giây** để thảo luận và tìm ra Ma Sói. 🔎", { fields: [{ name: "⏳ Hết giờ thảo luận", value: eta(60) }, ...rosterFields(s)], footer: foot(s) }));
     await this.state.storage.setAlarm(Date.now() + ms(60));
   }
   async kill(s, id, cause) {
@@ -332,7 +407,7 @@ export class MasoiRoom extends DurableObject {
     s.phase = "vote"; s.votes = {};
     const alive = s.players.filter(p => p.alive);
     const options = alive.map(p => ({ label: safe(p.name).slice(0, 95), value: p.id, description: "Người chơi còn sống" }));
-    await this.sendChannel(s, { ...this.embed("🗳️ Bỏ phiếu treo cổ", "Chọn một người để treo cổ. Bạn có thể đổi phiếu trong **30 giây**. Nút Skip dùng để bỏ phiếu trống."), components: [
+    await this.sendChannel(s, { ...this.embed("🗳️ Bỏ phiếu treo cổ", "Chọn người bạn nghi là Ma Sói. Phiếu là **ẩn danh** và bạn có thể **đổi phiếu** trước khi hết giờ. Nút Skip dùng để bỏ phiếu trống.", { fields: [{ name: "⏳ Hết giờ bỏ phiếu", value: eta(30), inline: true }, { name: "🟢 Được bỏ phiếu", value: `**${alive.length}** người`, inline: true }], footer: foot(s) }), components: [
       { type: 1, components: [this.select(`ms:${s.guildId}:vote`, "[ Chọn người để treo cổ ]", options)] },
       { type: 1, components: [this.button("Bỏ phiếu trống (Skip)", `ms:${s.guildId}:vote_skip`, 2)] },
     ] });
@@ -341,6 +416,7 @@ export class MasoiRoom extends DurableObject {
   async finishVote(s) {
     const counts = {}; Object.entries(s.votes).forEach(([voter, target]) => { if (s.players.some(p => p.id === voter && p.alive)) counts[target] = (counts[target] || 0) + 1; });
     const sorted = Object.entries(counts).sort((a,b) => b[1] - a[1]);
+    const tally = sorted.map(([id, c]) => `${id === "skip" ? "⏭️ Bỏ phiếu trống" : mention(id)} — **${c}** phiếu`).join("\n") || "Chưa có ai bỏ phiếu.";
     if (sorted.length && sorted[0][0] !== "skip" && (!sorted[1] || sorted[0][1] > sorted[1][1])) {
       const target = s.players.find(p => p.id === sorted[0][0] && p.alive);
       if (target?.role === ROLE.JESTER) return this.finishGame(s, "Kẻ Chán Đời", [target.id]);
@@ -350,8 +426,8 @@ export class MasoiRoom extends DurableObject {
         await this.resolveDeaths(s);
         if (s.phase === "hunter") { s.resumeAfterHunter = "vote"; await this.save(s); return; }
       }
-      await this.sendChannel(s, this.embed("⚖️ Kết quả bỏ phiếu", `${mention(sorted[0][0])} đã nhận nhiều phiếu nhất nên đã bị treo cổ.`));
-    } else await this.sendChannel(s, this.embed("⚖️ Kết quả bỏ phiếu", "Không ai bị treo cổ (Skip hoặc hòa phiếu)."));
+      await this.sendChannel(s, this.embed("⚖️ Kết quả bỏ phiếu", `${mention(sorted[0][0])} đã nhận nhiều phiếu nhất nên đã bị treo cổ. 🪢`, { fields: [{ name: "📊 Số phiếu", value: tally.slice(0, 1024) }] }));
+    } else await this.sendChannel(s, this.embed("⚖️ Kết quả bỏ phiếu", "Không ai bị treo cổ (Skip hoặc hòa phiếu). 🕊️", { fields: [{ name: "📊 Số phiếu", value: tally.slice(0, 1024) }] }));
     if (s.status !== "playing") return;
     await this.summary(s);
     if (await this.checkWin(s)) return;
@@ -361,7 +437,7 @@ export class MasoiRoom extends DurableObject {
   async summary(s) {
     const living = s.players.filter(p => p.alive).map(p => mention(p.id)).join(", ") || "Không còn ai";
     const dead = s.players.filter(p => !p.alive).map(p => mention(p.id)).join(", ") || "Chưa có";
-    await this.sendChannel(s, this.embed(`📊 TỔNG KẾT NGÀY ${s.day}:`, `🟢 Người sống: ${living}\n🔴 Người chết: ${dead}`));
+    await this.sendChannel(s, this.embed(`📊 TỔNG KẾT NGÀY ${s.day}:`, `🟢 Người sống: ${living}\n🔴 Người chết: ${dead}`, { fields: [{ name: "👥 Tình hình làng", value: `${bar(s.players.filter(p => p.alive).length, s.players.length)}  **${s.players.filter(p => p.alive).length}/${s.players.length}** còn sống` }], footer: foot(s) }));
   }
   async checkWin(s) {
     const alive = s.players.filter(p => p.alive);
@@ -408,7 +484,7 @@ export class MasoiRoom extends DurableObject {
     }
     const desc = `🏆 CHIẾN THẮNG THUỘC VỀ ${teamName.toUpperCase()}!\n\n🎉 Người thắng (+200 Token Cá 🪙):\n${linesWin.join("\n") || "Không có"}\n\n🎖️ Thưởng cống hiến (+10 Token Cá 🪙):\n${linesLoss.join("\n") || "Không có"}`;
     if (!s.resultMessageSent) {
-      await this.sendChannel(s, this.embed("🏆 Ma Sói — Kết thúc ván", desc));
+      await this.sendChannel(s, this.embed("🏆 Ma Sói — Kết thúc ván", desc, { footer: { text: `Ván kéo dài ${s.night} đêm • ${s.players.length} người chơi • Cảm ơn mọi người đã chơi!` } }));
       s.resultMessageSent = true; await this.save(s);
     }
     await this.state.storage.deleteAlarm();
