@@ -5,6 +5,7 @@ const ROUTES = {
   "kiem-token": { title: "Kiếm Token Cá", eyebrow: "PHẦN THƯỞNG" },
   "xep-hang": { title: "Bảng xếp hạng", eyebrow: "CỘNG ĐỒNG" },
   "kinh-te": { title: "Kinh tế", eyebrow: "HỆ THỐNG" },
+  "cua-hang": { title: "Cửa hàng", eyebrow: "VẬT PHẨM" },
 };
 const DEFAULT_ROUTE = "tong-quan";
 
@@ -31,6 +32,13 @@ function showRoute() {
   document.getElementById("page-eyebrow").textContent = ROUTES[name].eyebrow;
   document.title = ROUTES[name].title + " · NEXUS";
   window.scrollTo(0, 0);
+
+  // Thanh tab điện thoại cuộn ngang được: tự cuộn để tab đang chọn luôn nằm trong tầm nhìn
+  const activeTab = document.querySelector(".tabbar .tab.active");
+  if (activeTab && activeTab.offsetParent !== null) {
+    const bar = activeTab.parentElement;
+    bar.scrollTo({ left: activeTab.offsetLeft - (bar.clientWidth - activeTab.offsetWidth) / 2, behavior: "smooth" });
+  }
 }
 
 // Lưu ý: không ghi đè location.hash ở đây, vì Discord trả token về qua hash khi đăng nhập

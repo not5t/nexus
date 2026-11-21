@@ -27,6 +27,7 @@ const TYPE_INFO = {
   pay_out: { icon: "💸", label: "Đã chuyển" },
   pay_in: { icon: "📥", label: "Đã nhận" },
   masoi: { icon: "🐺", label: "Ma Sói" },
+  shop: { icon: "🛒", label: "Mua đồ" },
 };
 
 const fmt = n => (Number(n) || 0).toLocaleString("vi-VN");
