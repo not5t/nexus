@@ -1,6 +1,7 @@
 import { MasoiRoom } from "./game/gameManager.js";
 import { masoiCommandJson } from "./game/masoiCommand.js";
 import { ITEMS, ITEM_BY_ID, TYPE_NAME, findItem, normalize, currentShop, itemEmbed } from "./game/items.js";
+import { FISH_SCHEMA, hoca, tuica, bosuutap, banca, cauca, fishComponent, fishAutocomplete } from "./game/fishing.js";
 export { MasoiRoom };
 
 // NEXUS v0.7 (thêm /pay có thuế) - bản gốc v0.6a - Cloudflare Worker: lệnh Discord + API + dữ liệu D1 (không cần bot chạy 24/7)
@@ -64,6 +65,7 @@ function ensureSchema(db) {
         user_id TEXT NOT NULL, item_id TEXT NOT NULL,
         qty INTEGER NOT NULL DEFAULT 0, durability INTEGER NOT NULL DEFAULT 0,
         PRIMARY KEY (user_id, item_id))`),
+      ...FISH_SCHEMA.map(q => db.prepare(q)),
     ])
     .catch(err => {
       schemaReady = null;
@@ -225,7 +227,7 @@ async function shopView(db, userId) {
   const shop = currentShop();
   const ownedRods = new Set((await getInventory(db, userId)).filter(r => r.item.type === "rod").map(r => r.item.id));
   const lines = shop.slots
-    .map(({ slot, item }) => `**${slot}.** ${item.icon} ${item.name}: **${fmtN(item.price)}** token${ownedRods.has(item.id) ? "  ✅ *đã có*" : ""}`)
+    .map(({ slot, item, fixed }) => `**${slot}.** ${item.icon} ${item.name}: **${fmtN(item.price)}** token${fixed ? " 📌" : ""}${ownedRods.has(item.id) ? "  ✅ *đã có*" : ""}`)
     .join("\n");
   return {
     embeds: [
@@ -235,9 +237,9 @@ async function shopView(db, userId) {
         color: 0xf59e0b,
         fields: [
           { name: "🔄 Làm mới", value: `<t:${shop.refreshAt / 1000}:R>`, inline: true },
-          { name: "🛍️ Cách mua", value: "`/shop buy` chọn **slot** (1-4) và **số lượng**", inline: true },
+          { name: "🛍️ Cách mua", value: "`/shop buy` chọn **slot** (1-6) và **số lượng**", inline: true },
         ],
-        footer: { text: "Cửa hàng đổi 4 món ngẫu nhiên mỗi giờ • Xem thông tin đồ bạn có bằng /item view" },
+        footer: { text: "📌 Cố định • 4 món còn lại đổi ngẫu nhiên mỗi giờ • Xem thông tin đồ bạn có bằng /item view" },
       },
     ],
   };
@@ -246,7 +248,7 @@ async function shopView(db, userId) {
 async function shopBuy(db, me, slotNo, qty) {
   const shop = currentShop();
   const slot = shop.slots.find(s => s.slot === slotNo);
-  if (!slot) return secret("❌ Hãy chọn số thứ tự từ 1 đến 4 theo `/shop view`.");
+  if (!slot) return secret("❌ Hãy chọn số thứ tự từ 1 đến 6 theo `/shop view`.");
   if (!Number.isInteger(qty) || qty < 1 || qty > 10000) return secret("❌ Số lượng phải từ 1 đến 10.000.");
   const item = slot.item;
   const now = Date.now();
@@ -438,6 +440,20 @@ async function runCommand(name, body, env) {
     }
   }
 
+  if (name === "hoca") return hoca(body.guild_id);
+  if (name === "tuica") return await tuica(db, me);
+  if (name === "banca") return await banca(db, me);
+  if (name === "bosuutap") {
+    const o = body.data.options || [];
+    const val = n => (o.find(x => x.name === n) || {}).value;
+    return await bosuutap(db, me, val("loai"), val("do_hiem"));
+  }
+  if (name === "cauca") {
+    const o = body.data.options || [];
+    const val = n => (o.find(x => x.name === n) || {}).value;
+    return await cauca(db, me, val("can"), val("moi"), body.guild_id);
+  }
+
   if (name === "item") {
     const sub = (body.data.options || [])[0];
     if (sub && sub.name === "view") {
@@ -458,6 +474,11 @@ async function handleInteraction(body, env) {
       const sub = (body.data.options || [])[0];
       const focused = ((sub && sub.options) || []).find(o => o.focused);
       if (body.data.name === "item" && focused) return { type: 8, data: { choices: await itemAutocomplete(env.DB, raw.id, focused.value) } };
+      const top = (body.data.options || []).find(o => o.focused);
+      if (top) {
+        const choices = await fishAutocomplete(env.DB, raw.id, body.data.name, top);
+        if (choices) return { type: 8, data: { choices } };
+      }
     } catch (err) {
       console.error("Lỗi gợi ý:", err);
     }
@@ -483,6 +504,16 @@ async function handleInteraction(body, env) {
       return { type: 4, data: await runCommand(body.data.name, body, env) };
     } catch (err) {
       console.error("Lỗi lệnh:", err);
+      return { type: 4, data: secret("Có lỗi xảy ra, bạn thử lại sau nhé.") };
+    }
+  }
+  if (body.type === 3 && String(body.data?.custom_id || "").startsWith("fs:")) {
+    try {
+      const raw = body.member ? body.member.user : body.user;
+      const me = { id: raw.id, name: cleanName(raw.global_name || raw.username) };
+      return await fishComponent(env.DB, body, me);
+    } catch (err) {
+      console.error("Lỗi bán cá:", err);
       return { type: 4, data: secret("Có lỗi xảy ra, bạn thử lại sau nhé.") };
     }
   }
@@ -791,7 +822,7 @@ export default {
             } catch (e) { console.error("Không bind được tin nhắn lobby:", e); }
           })());
         }
-        if (body.type === 3) {
+        if (body.type === 3 && String(body.data?.custom_id || "").startsWith("ms:")) {
           const customId = String(body.data?.custom_id || "");
           const guildId = body.guild_id || customId.split(":")[1];
           if (guildId && env.MASOI_ROOMS) {
@@ -850,7 +881,7 @@ export default {
           return reply(200, {
             now: Date.now(),
             refreshAt: shop.refreshAt,
-            items: shop.slots.map(({ slot, item }) => ({ slot, id: item.id, type: item.type, typeName: TYPE_NAME[item.type], icon: item.icon, name: item.name, price: item.price })),
+            items: shop.slots.map(({ slot, item, fixed }) => ({ slot, fixed: !!fixed, id: item.id, type: item.type, typeName: TYPE_NAME[item.type], icon: item.icon, name: item.name, price: item.price })),
           });
         }
 
