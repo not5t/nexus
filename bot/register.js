@@ -15,6 +15,34 @@ const commands = [
   },
   { name: "daily", description: "Điểm danh nhận Token Cá mỗi ngày" },
   { name: "work", description: "Đi làm việc ngoài biển để kiếm Token Cá" },
+  {
+    name: "shop",
+    description: "Cửa hàng NEXUS (làm mới mỗi giờ)",
+    options: [
+      { type: 1, name: "view", description: "Xem 4 vật phẩm đang bán trong giờ này" },
+      {
+        type: 1,
+        name: "buy",
+        description: "Mua vật phẩm đang bán",
+        options: [
+          { type: 4, name: "slot", description: "Số thứ tự vật phẩm muốn mua (1-4)", required: true, min_value: 1, max_value: 4 },
+          { type: 4, name: "quantity", description: "Số lượng muốn mua (cần câu chỉ mua được 1)", required: false, min_value: 1, max_value: 10000 },
+        ],
+      },
+    ],
+  },
+  {
+    name: "item",
+    description: "Vật phẩm của bạn",
+    options: [
+      {
+        type: 1,
+        name: "view",
+        description: "Xem thông tin chi tiết vật phẩm bạn đang có",
+        options: [{ type: 3, name: "item", description: "Chọn vật phẩm bạn đang có", required: true, autocomplete: true }],
+      },
+    ],
+  },
   { name: "masoi", description: "Tạo phòng chơi Ma Sói trong server" },
   {
     name: "pay",
