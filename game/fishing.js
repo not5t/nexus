@@ -68,7 +68,6 @@ export function hoca(guildId) {
   fields.push({ name: "⏳ Làm mới", value: eta(pond.refreshAt), inline: true }, { name: "🐟 Số loài", value: `**${pond.species.length}**`, inline: true });
   return card("🌊 Hồ Cá", "Các sinh vật đang xuất hiện trong hồ. Danh sách **dùng chung cho cả server** và giữ nguyên trong 20 phút.", {
     color: 0x0ea5e9,
-    thumb: "1f30a",
     fields,
     footer: "Cá Secret không hiện ở đây nhưng vẫn có thể bắt được • Mồi quyết định bạn chạm trán nhóm nào",
   });
@@ -416,7 +415,6 @@ export async function cauca(db, me, rodIn, baitIn, guildId) {
     const nameLine = first.part === "tentacle" ? `**${TENTACLE.name} ${TENTACLE.icon}** (từ ${sp.name})` : `**${sp.name} ${sp.icon}**`;
     return card("🎣 KẾT QUẢ CÂU CÁ", `${nameLine}\n${rarityLine(sp.rarity)}${[notes, ...extra].filter(Boolean).length ? "\n\n" + [notes, ...extra].filter(Boolean).join("\n") : ""}${broke}`, {
       color,
-      thumb: "1f3a3",
       fields,
       footer: foot,
     });
@@ -429,7 +427,6 @@ export async function cauca(db, me, rodIn, baitIn, guildId) {
       : `**${sp.name} ${sp.icon}** (${rarityLine(sp.rarity)}) đã thoát khỏi lưỡi câu.`;
   return card(title, `${text}${notes ? "\n\n" + notes : ""}${broke}`, {
     color: out.kind === "snap" ? 0xef4444 : 0x64748b,
-    thumb: out.kind === "snap" ? "1f4a5" : "1f3a3",
     fields: gear,
     footer: foot,
   });

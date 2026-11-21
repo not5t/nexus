@@ -114,17 +114,18 @@ export function rodCapability(rodId) {
 export const speciesName = (id, part) => (part === "tentacle" ? TENTACLE.name : SPECIES_BY_ID[id].name);
 export const speciesIcon = (id, part) => (part === "tentacle" ? TENTACLE.icon : SPECIES_BY_ID[id].icon);
 
-// Tiền nhận = cân nặng × giá/kg (× hệ số giá trị), làm tròn về số nguyên
+// Tiền nhận = cân nặng × giá/kg (× hệ số giá trị), làm tròn về số nguyên, tối thiểu 1 Token
 export function fishValue(speciesId, weightG, mult = 1, part = "") {
   if (part === "tentacle") return FISH_CFG.tentaclePrice;
   const s = SPECIES_BY_ID[speciesId];
   if (s.fixedPrice !== undefined) return s.fixedPrice;
-  return Math.max(0, Math.round(((weightG * s.price) / (s.unit * 1000)) * mult));
+  return Math.max(1, Math.round(((weightG * s.price) / (s.unit * 1000)) * mult));
 }
 
+// Giữ đúng đơn vị bạn đặt: ví dụ Cá con là "3 Token/0,1 kg" chứ không đổi thành 30 Token/kg
 export function priceLabel(s) {
   if (s.fixedPrice !== undefined) return `${fmtNum(s.fixedPrice)} Token/cái`;
-  return `${fmtNum(s.price / s.unit)} Token/kg`;
+  return `${fmtNum(s.price)} Token/${s.unit === 1 ? "" : fmtNum(s.unit) + " "}kg`;
 }
 
 export const fmtNum = (n, max = 2) => Number(n).toLocaleString("vi-VN", { maximumFractionDigits: max });
@@ -133,10 +134,29 @@ export function fmtKg(g) {
   return `${fmtNum(kg, kg < 1 ? 3 : kg < 100 ? 2 : 1)} kg`;
 }
 
-// Cân nặng lệch về phía nhẹ: cá nặng gần mức tối đa rất hiếm
+// ---------- Cân bằng kinh tế qua phân bố cân nặng ----------
+// Giá/kg, cân nặng tối đa và công thức "cân nặng × giá/kg" đều giữ nguyên. Thứ được cân bằng là
+// phân bố cân nặng khi câu: cá hiếm hầu hết nhẹ hơn nhiều so với mức tối đa, còn cân nặng tiệm cận mức tối đa
+// (kỷ lục, "jackpot") thì rất hiếm. Nhờ đó giá trị trung bình của mỗi nhóm hiếm nằm ở mức dưới đây
+// dù giá/kg của từng loài chênh lệch rất nhiều.
+export const TARGET_EV = { rare: 350, epic: 1500, legendary: 6000, mythic: 20000, secret: 600 };
+
+function weightModel(s) {
+  const naturalSkew = s.maxKg <= 2 ? 1.5 : 3; // loài nhỏ ít lệch hơn nên cân nặng đa dạng hơn
+  const naturalMean = 0.03 + 0.97 / (naturalSkew + 1);
+  const maxValue = (s.price * s.maxKg) / s.unit; // giá trị khi bắt đúng cân nặng tối đa
+  const target = TARGET_EV[s.rarity];
+  const want = target && maxValue > 0 ? target / maxValue : naturalMean;
+  if (want >= naturalMean) return { floor: 0.03, skew: naturalSkew }; // tự nhiên đã đủ thấp
+  const floor = want / 4;
+  return { floor, skew: (1 - floor) / (0.75 * want) - 1 };
+}
+const WEIGHT_MODEL = Object.fromEntries(SPECIES.map(s => [s.id, weightModel(s)]));
+
 function rollWeightG(s, rng) {
+  const { floor, skew } = WEIGHT_MODEL[s.id];
   const maxG = Math.round(s.maxKg * 1000);
-  return Math.max(1, Math.round(maxG * (0.03 + 0.97 * Math.pow(rng(), 3))));
+  return Math.max(1, Math.round(maxG * (floor + (1 - floor) * Math.pow(rng(), skew))));
 }
 
 // ---------- Hồ cá (đổi mỗi 20 phút, mỗi server một hồ) ----------
