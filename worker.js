@@ -2,6 +2,7 @@ import { MasoiRoom } from "./game/gameManager.js";
 import { masoiCommandJson } from "./game/masoiCommand.js";
 import { ITEMS, ITEM_BY_ID, TYPE_NAME, findItem, normalize, currentShop, itemEmbed } from "./game/items.js";
 import { FISH_SCHEMA, hoca, tuica, bosuutap, banca, cauca, fishComponent, fishAutocomplete } from "./game/fishing.js";
+import { rodCapability } from "./game/fish.js";
 export { MasoiRoom };
 
 // NEXUS v0.7 (thêm /pay có thuế) - bản gốc v0.6a - Cloudflare Worker: lệnh Discord + API + dữ liệu D1 (không cần bot chạy 24/7)
@@ -316,7 +317,14 @@ async function itemView(db, userId, input) {
   if (!item) return secret("❌ Không tìm thấy vật phẩm này. Hãy chọn từ danh sách gợi ý khi gõ `/item view`.");
   const own = (await getInventory(db, userId)).find(r => r.item.id === item.id);
   if (!own) return secret(`❌ Bạn không có **${item.name}**. Chỉ xem được thông tin vật phẩm bạn đang sở hữu.`);
-  return { embeds: [itemEmbed(item, own)], flags: 64 };
+  const embed = itemEmbed(item, own);
+  const cap = item.type === "rod" ? rodCapability(item.id) : null;
+  if (cap) {
+    // Cho người chơi biết cần này câu được nhóm nào, tránh dùng nhầm mồi quá sức cần
+    embed.fields.push({ name: "🎣 Câu được", value: cap.can, inline: true });
+    if (cap.breaks) embed.fields.push({ name: "⚠️ Đứt dây khi gặp", value: cap.breaks, inline: true });
+  }
+  return { embeds: [embed], flags: 64 };
 }
 
 async function itemAutocomplete(db, userId, query) {
