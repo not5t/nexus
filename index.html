@@ -27,11 +27,12 @@
       <a class="nav-item" href="#kiem-token" data-route="kiem-token"><span>💰</span> Kiếm Token Cá</a>
       <a class="nav-item" href="#xep-hang" data-route="xep-hang"><span>🏆</span> Bảng xếp hạng</a>
       <a class="nav-item" href="#kinh-te" data-route="kinh-te"><span>📊</span> Kinh tế</a>
+      <a class="nav-item" href="#cua-hang" data-route="cua-hang"><span>🛒</span> Cửa hàng</a>
     </nav>
 
     <div class="sidebar-bottom">
       <span class="status-dot"></span>
-      NEXUS v0.7.1
+      NEXUS v0.6c
     </div>
   </aside>
 
@@ -68,8 +69,8 @@
         <article class="stat-card">
           <span>🤖 Trạng thái bot</span>
           <h2 id="stat-status" class="demo-status">CHƯA KẾT NỐI</h2>
-          <small id="stat-status-note">Chưa kết nối với bot</small>
-          <div><button id="api-btn" class="btn btn-ghost btn-small">🤖 Kết nối bot</button></div>
+          <small id="stat-status-note">Chưa kết nối bot</small>
+          <div><button id="api-btn" class="btn btn-ghost btn-small">🔌 Kết nối API</button></div>
         </article>
 
         <article class="stat-card">
@@ -103,6 +104,9 @@
           <li><code>/work</code><span>Làm việc ngoài biển, nghỉ 30 phút giữa các lần</span></li>
           <li><code>/balance</code><span>Xem số dư của bạn hoặc người khác</span></li>
           <li><code>/leaderboard</code><span>Xem những người giàu nhất</span></li>
+          <li><code>/shop view</code><span>Xem 4 vật phẩm đang bán trong giờ này</span></li>
+          <li><code>/shop buy</code><span>Mua vật phẩm bằng số thứ tự và số lượng</span></li>
+          <li><code>/item view</code><span>Xem thông tin vật phẩm bạn đang có</span></li>
         </ul>
       </section>
     </div>
@@ -190,6 +194,25 @@
       </section>
     </div>
 
+    <!-- Trang 5: Cửa hàng (chỉ xem, mua trên Discord) -->
+    <div class="page" id="page-cua-hang" hidden>
+      <section class="panel">
+        <div class="panel-heading">
+          <div>
+            <h3>Cửa hàng</h3>
+            <p class="muted">4 vật phẩm ngẫu nhiên, làm mới mỗi giờ</p>
+          </div>
+          <span class="tag" id="shop-tag">ĐANG TẢI</span>
+        </div>
+        <div id="shop-content">
+          <div class="empty-state">
+            <span>🛒</span>
+            <h3>Đang tải cửa hàng...</h3>
+          </div>
+        </div>
+      </section>
+    </div>
+
     <footer>NEXUS © 2026 · Hệ thống kinh tế cá</footer>
   </main>
 
@@ -199,6 +222,7 @@
     <a class="tab" href="#kiem-token" data-route="kiem-token"><span>💰</span>Kiếm Token</a>
     <a class="tab" href="#xep-hang" data-route="xep-hang"><span>🏆</span>Xếp hạng</a>
     <a class="tab" href="#kinh-te" data-route="kinh-te"><span>📊</span>Kinh tế</a>
+    <a class="tab" href="#cua-hang" data-route="cua-hang"><span>🛒</span>Cửa hàng</a>
   </nav>
 
   <script src="js/config.js"></script>
@@ -208,5 +232,6 @@
   <script src="js/wallet.js"></script>
   <script src="js/leaderboard.js"></script>
   <script src="js/earn.js"></script>
+  <script src="js/shop.js"></script>
 </body>
 </html>

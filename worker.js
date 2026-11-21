@@ -1,5 +1,6 @@
 import { MasoiRoom } from "./game/gameManager.js";
 import { masoiCommandJson } from "./game/masoiCommand.js";
+import { ITEMS, ITEM_BY_ID, TYPE_NAME, findItem, normalize, currentShop, itemEmbed } from "./game/items.js";
 export { MasoiRoom };
 
 // NEXUS v0.7 (thêm /pay có thuế) - bản gốc v0.6a - Cloudflare Worker: lệnh Discord + API + dữ liệu D1 (không cần bot chạy 24/7)
@@ -59,6 +60,10 @@ function ensureSchema(db) {
       db.prepare(`CREATE TABLE IF NOT EXISTS masoi_payouts (
         game_id TEXT NOT NULL, user_id TEXT NOT NULL, amount INTEGER NOT NULL,
         PRIMARY KEY (game_id, user_id))`),
+      db.prepare(`CREATE TABLE IF NOT EXISTS inventory (
+        user_id TEXT NOT NULL, item_id TEXT NOT NULL,
+        qty INTEGER NOT NULL DEFAULT 0, durability INTEGER NOT NULL DEFAULT 0,
+        PRIMARY KEY (user_id, item_id))`),
     ])
     .catch(err => {
       schemaReady = null;
@@ -203,6 +208,124 @@ async function getWallet(db, id) {
   };
 }
 
+// ---------- Cửa hàng & kho đồ ----------
+
+const fmtN = n => Number(n).toLocaleString("vi-VN");
+const ITEM_ORDER = Object.fromEntries(ITEMS.map((i, k) => [i.id, k]));
+
+async function getInventory(db, id) {
+  const { results } = await db.prepare("SELECT item_id, qty, durability FROM inventory WHERE user_id = ? AND qty > 0").bind(id).all();
+  return results
+    .map(r => ({ item: ITEM_BY_ID[r.item_id], qty: r.qty, durability: r.durability }))
+    .filter(r => r.item)
+    .sort((a, b) => ITEM_ORDER[a.item.id] - ITEM_ORDER[b.item.id]);
+}
+
+async function shopView(db, userId) {
+  const shop = currentShop();
+  const ownedRods = new Set((await getInventory(db, userId)).filter(r => r.item.type === "rod").map(r => r.item.id));
+  const lines = shop.slots
+    .map(({ slot, item }) => `**${slot}.** ${item.icon} ${item.name}: **${fmtN(item.price)}** token${ownedRods.has(item.id) ? "  ✅ *đã có*" : ""}`)
+    .join("\n");
+  return {
+    embeds: [
+      {
+        title: "🛒 Cửa hàng NEXUS",
+        description: lines,
+        color: 0xf59e0b,
+        fields: [
+          { name: "🔄 Làm mới", value: `<t:${shop.refreshAt / 1000}:R>`, inline: true },
+          { name: "🛍️ Cách mua", value: "`/shop buy` chọn **slot** (1-4) và **số lượng**", inline: true },
+        ],
+        footer: { text: "Cửa hàng đổi 4 món ngẫu nhiên mỗi giờ • Xem thông tin đồ bạn có bằng /item view" },
+      },
+    ],
+  };
+}
+
+async function shopBuy(db, me, slotNo, qty) {
+  const shop = currentShop();
+  const slot = shop.slots.find(s => s.slot === slotNo);
+  if (!slot) return secret("❌ Hãy chọn số thứ tự từ 1 đến 4 theo `/shop view`.");
+  if (!Number.isInteger(qty) || qty < 1 || qty > 10000) return secret("❌ Số lượng phải từ 1 đến 10.000.");
+  const item = slot.item;
+  const now = Date.now();
+
+  if (item.type === "rod") {
+    if (qty !== 1) return secret(`❌ ${item.name} là cần câu nên chỉ mua được **1** cái.`);
+    const cost = item.price;
+    const res = await db.batch([
+      // Chỉ thêm khi đủ tiền và chưa có cần câu này; mọi bước sau chạy tiếp nhờ changes()
+      db
+        .prepare(
+          "INSERT INTO inventory (user_id, item_id, qty, durability) SELECT ?, ?, 1, ? WHERE (SELECT balance FROM users WHERE id = ?) >= ? AND NOT EXISTS (SELECT 1 FROM inventory WHERE user_id = ? AND item_id = ? AND qty > 0)"
+        )
+        .bind(me.id, item.id, item.durability, me.id, cost, me.id, item.id),
+      db.prepare("UPDATE users SET balance = balance - ? WHERE id = ? AND changes() > 0").bind(cost, me.id),
+      db
+        .prepare("INSERT INTO transactions (user_id, amount, type, note, created_at) SELECT ?, ?, 'shop', ?, ? WHERE changes() > 0")
+        .bind(me.id, -cost, `Mua ${item.name}`, now),
+    ]);
+    if (res[0].meta.changes === 0) {
+      const owned = await db.prepare("SELECT 1 AS x FROM inventory WHERE user_id = ? AND item_id = ? AND qty > 0").bind(me.id, item.id).first();
+      if (owned) return secret(`❌ Bạn đã có **${item.name}** rồi, không thể mua trùng cần câu.`);
+      return secret(`💸 Không đủ Token Cá. **${item.name}** giá **${money(cost)}**, bạn đang có **${money(await getBalance(db, me.id))}**.`);
+    }
+    return buyDone(db, me, item, 1, cost);
+  }
+
+  const cost = item.price * qty;
+  const res = await db.batch([
+    db.prepare("UPDATE users SET balance = balance - ? WHERE id = ? AND balance >= ?").bind(cost, me.id, cost),
+    db
+      .prepare(
+        "INSERT INTO inventory (user_id, item_id, qty, durability) SELECT ?, ?, ?, 0 WHERE changes() > 0 ON CONFLICT (user_id, item_id) DO UPDATE SET qty = qty + excluded.qty"
+      )
+      .bind(me.id, item.id, qty),
+    db
+      .prepare("INSERT INTO transactions (user_id, amount, type, note, created_at) SELECT ?, ?, 'shop', ?, ? WHERE changes() > 0")
+      .bind(me.id, -cost, `Mua ${qty} ${item.name}`, now),
+  ]);
+  if (res[0].meta.changes === 0)
+    return secret(`💸 Không đủ Token Cá. ${qty} ${item.name} giá **${money(cost)}**, bạn đang có **${money(await getBalance(db, me.id))}**.`);
+  return buyDone(db, me, item, qty, cost);
+}
+
+async function buyDone(db, me, item, qty, cost) {
+  const balance = await getBalance(db, me.id);
+  return {
+    embeds: [
+      {
+        title: "✅ Mua thành công",
+        description: `**${me.name}** đã mua ${item.icon} **${item.name}**${qty > 1 ? ` ×**${fmtN(qty)}**` : ""}.`,
+        color: 0x22c55e,
+        fields: [
+          { name: "💸 Đã trả", value: money(cost), inline: true },
+          { name: "👛 Số dư còn lại", value: money(balance), inline: true },
+        ],
+        footer: { text: "Xem thông tin vật phẩm bằng /item view" },
+      },
+    ],
+  };
+}
+
+async function itemView(db, userId, input) {
+  const item = findItem(input);
+  if (!item) return secret("❌ Không tìm thấy vật phẩm này. Hãy chọn từ danh sách gợi ý khi gõ `/item view`.");
+  const own = (await getInventory(db, userId)).find(r => r.item.id === item.id);
+  if (!own) return secret(`❌ Bạn không có **${item.name}**. Chỉ xem được thông tin vật phẩm bạn đang sở hữu.`);
+  return { embeds: [itemEmbed(item, own)], flags: 64 };
+}
+
+async function itemAutocomplete(db, userId, query) {
+  const q = normalize(query);
+  const inv = await getInventory(db, userId);
+  return inv
+    .filter(r => !q || normalize(r.item.name).includes(q))
+    .slice(0, 25)
+    .map(r => ({ name: `${r.item.icon} ${r.item.name}${r.item.type === "bait" ? ` (x${fmtN(r.qty)})` : ""}`.slice(0, 100), value: r.item.id }));
+}
+
 // ---------- Lệnh Discord ----------
 
 const embed = (title, description) => ({ embeds: [{ title, description, color: CFG.color }] });
@@ -225,7 +348,22 @@ async function runCommand(name, body, env) {
     const target = opt ? body.data.resolved.users[opt.value] : null;
     const id = target ? target.id : me.id;
     const label = target ? cleanName(target.global_name || target.username) : me.name;
-    return embed(`👛 Ví của ${label}`, `**${money(await getBalance(db, id))}**`);
+    const inv = await getInventory(db, id);
+    const rods = inv.filter(r => r.item.type === "rod");
+    const baits = inv.filter(r => r.item.type === "bait");
+    return {
+      embeds: [
+        {
+          title: `👛 Ví của ${label}`,
+          description: `**${money(await getBalance(db, id))}**`,
+          color: CFG.color,
+          fields: [
+            { name: "🎣 Số cần câu", value: rods.length ? rods.map(r => `• ${r.item.name}`).join("\n") : "Chưa có" },
+            { name: "🪱 Số mồi câu", value: baits.length ? baits.map(r => `• ${r.item.name}: **${fmtN(r.qty)}**`).join("\n") : "Chưa có" },
+          ],
+        },
+      ],
+    };
   }
 
   if (name === "daily") {
@@ -289,11 +427,42 @@ async function runCommand(name, body, env) {
     return embed("🏆 Bảng xếp hạng Token Cá", top.map(p => `${rankLabel(p)} **${p.name}** — ${money(p.balance)}`).join("\n"));
   }
 
+  if (name === "shop") {
+    const sub = (body.data.options || [])[0];
+    if (!sub || sub.name === "view") return await shopView(db, me.id);
+    if (sub.name === "buy") {
+      const o = sub.options || [];
+      const slot = Number((o.find(x => x.name === "slot") || {}).value);
+      const qty = Number((o.find(x => x.name === "quantity") || {}).value || 1);
+      return await shopBuy(db, me, slot, qty);
+    }
+  }
+
+  if (name === "item") {
+    const sub = (body.data.options || [])[0];
+    if (sub && sub.name === "view") {
+      const o = (sub.options || []).find(x => x.name === "item");
+      return await itemView(db, me.id, o ? o.value : "");
+    }
+  }
+
   return secret("Lệnh này chưa được hỗ trợ.");
 }
 
 async function handleInteraction(body, env) {
   if (body.type === 1) return { type: 1 }; // PING
+  if (body.type === 4) {
+    // Gợi ý tự động: chỉ liệt kê vật phẩm người chơi đang có
+    try {
+      const raw = body.member ? body.member.user : body.user;
+      const sub = (body.data.options || [])[0];
+      const focused = ((sub && sub.options) || []).find(o => o.focused);
+      if (body.data.name === "item" && focused) return { type: 8, data: { choices: await itemAutocomplete(env.DB, raw.id, focused.value) } };
+    } catch (err) {
+      console.error("Lỗi gợi ý:", err);
+    }
+    return { type: 8, data: { choices: [] } };
+  }
   if (body.type === 2) {
     try {
       if (body.data?.name === masoiCommandJson.name) {
@@ -675,6 +844,15 @@ export default {
         await ensureSchema(env.DB);
 
         if (url.pathname === "/api/stats") return reply(200, await getStats(env.DB));
+
+        if (url.pathname === "/api/shop") {
+          const shop = currentShop();
+          return reply(200, {
+            now: Date.now(),
+            refreshAt: shop.refreshAt,
+            items: shop.slots.map(({ slot, item }) => ({ slot, id: item.id, type: item.type, typeName: TYPE_NAME[item.type], icon: item.icon, name: item.name, price: item.price })),
+          });
+        }
 
         if (url.pathname === "/api/leaderboard") {
           if (url.searchParams.get("type") === "links") {
