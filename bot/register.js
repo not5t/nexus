@@ -19,13 +19,13 @@ const commands = [
     name: "shop",
     description: "Cửa hàng NEXUS (làm mới mỗi giờ)",
     options: [
-      { type: 1, name: "view", description: "Xem 4 vật phẩm đang bán trong giờ này" },
+      { type: 1, name: "view", description: "Xem 6 vật phẩm đang bán trong giờ này" },
       {
         type: 1,
         name: "buy",
         description: "Mua vật phẩm đang bán",
         options: [
-          { type: 4, name: "slot", description: "Số thứ tự vật phẩm muốn mua (1-4)", required: true, min_value: 1, max_value: 4 },
+          { type: 4, name: "slot", description: "Số thứ tự vật phẩm muốn mua (1-6)", required: true, min_value: 1, max_value: 6 },
           { type: 4, name: "quantity", description: "Số lượng muốn mua (cần câu chỉ mua được 1)", required: false, min_value: 1, max_value: 10000 },
         ],
       },
@@ -41,6 +41,40 @@ const commands = [
         description: "Xem thông tin chi tiết vật phẩm bạn đang có",
         options: [{ type: 3, name: "item", description: "Chọn vật phẩm bạn đang có", required: true, autocomplete: true }],
       },
+    ],
+  },
+  { name: "hoca", description: "Xem hồ cá: các sinh vật đang xuất hiện (làm mới mỗi 20 phút)" },
+  { name: "tuica", description: "Xem túi cá của bạn (tối đa 10 con)" },
+  {
+    name: "bosuutap",
+    description: "Xem bộ sưu tập sinh vật bạn đã khám phá",
+    options: [
+      { type: 3, name: "loai", description: "Chọn một loài đã bắt được để xem chi tiết (bỏ trống để xem tổng quan)", required: false, autocomplete: true },
+      {
+        type: 3,
+        name: "do_hiem",
+        description: "Lọc theo độ hiếm",
+        required: false,
+        choices: [
+          { name: "Common", value: "common" },
+          { name: "Uncommon", value: "uncommon" },
+          { name: "Rare", value: "rare" },
+          { name: "Epic", value: "epic" },
+          { name: "Legendary", value: "legendary" },
+          { name: "Mythic", value: "mythic" },
+          { name: "Secret", value: "secret" },
+          { name: "Trash", value: "trash" },
+        ],
+      },
+    ],
+  },
+  { name: "banca", description: "Bán cá trong túi (một con hoặc toàn bộ)" },
+  {
+    name: "cauca",
+    description: "Câu cá (hồi chiêu 30 giây, tốn 1 mồi và 1 độ bền)",
+    options: [
+      { type: 3, name: "can", description: "Chọn cần câu (phải còn độ bền)", required: true, autocomplete: true },
+      { type: 3, name: "moi", description: "Chọn mồi câu (phải có ít nhất 1)", required: true, autocomplete: true },
     ],
   },
   { name: "masoi", description: "Tạo phòng chơi Ma Sói trong server" },
