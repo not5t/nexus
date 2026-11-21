@@ -160,7 +160,7 @@ footer { margin-top: 30px; color: var(--muted); font-size: 11px; text-align: cen
 
 @media (max-width: 850px) {
   .sidebar { display: none; }
-  .tabbar { display: grid; }
+  .tabbar { display: flex; }
   .main-content { margin-left: 0; padding: 0 16px calc(96px + env(safe-area-inset-bottom, 0px)); }
   .topbar { margin: 0 -16px 18px; padding: calc(14px + env(safe-area-inset-top, 0px)) 16px 14px; }
   .stats-grid { grid-template-columns: repeat(2, 1fr); }
