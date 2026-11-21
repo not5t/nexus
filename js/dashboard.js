@@ -28,6 +28,7 @@ const TYPE_INFO = {
   pay_in: { icon: "📥", label: "Đã nhận" },
   masoi: { icon: "🐺", label: "Ma Sói" },
   shop: { icon: "🛒", label: "Mua đồ" },
+  fish_sell: { icon: "🎣", label: "Bán cá" },
 };
 
 const fmt = n => (Number(n) || 0).toLocaleString("vi-VN");

@@ -41,7 +41,7 @@ function renderShop(data) {
       shopEl("span", "shop-slot", "#" + it.slot),
       shopEl("span", "shop-icon", String(it.icon || "🎁")),
       shopEl("span", "shop-name", String(it.name)),
-      shopEl("span", "shop-kind", String(it.typeName || "")),
+      shopEl("span", "shop-kind", (it.fixed ? "📌 Cố định · " : "") + String(it.typeName || "")),
       shopEl("span", "shop-price", fmt(it.price) + " 🪙")
     );
     grid.appendChild(card);
@@ -49,7 +49,7 @@ function renderShop(data) {
 
   const hint = shopEl("div", "shop-hint");
   const line1 = shopEl("div");
-  line1.append("Muốn mua? Vào Discord và gõ ", shopEl("code", "", "/shop buy"), ", chọn ", shopEl("b", "", "slot"), " (1-4) và ", shopEl("b", "", "số lượng"), ".");
+  line1.append("Muốn mua? Vào Discord và gõ ", shopEl("code", "", "/shop buy"), ", chọn ", shopEl("b", "", "slot"), " (1-6) và ", shopEl("b", "", "số lượng"), ".");
   const line2 = shopEl("div", "", "Cần câu chỉ mua được 1 cái mỗi loại. Thông tin chi tiết chỉ xem được sau khi bạn sở hữu vật phẩm.");
   const line3 = shopEl("div");
   line3.append("Xem đồ bạn đang có: ", shopEl("code", "", "/item view"), " hoặc ", shopEl("code", "", "/balance"), ".");
