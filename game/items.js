@@ -1,13 +1,16 @@
 // NEXUS - Dữ liệu vật phẩm (cần câu, mồi câu) và cơ chế cửa hàng đổi hàng mỗi giờ.
 // File này chỉ chứa dữ liệu và hàm thuần, không phụ thuộc vào Worker, để sau này cơ chế câu cá dùng lại.
 
+// Icon tùy chỉnh chỉ hiện trong tin nhắn/embed trên Discord. Secret và Trash chưa có icon riêng nên dùng emoji thường.
 export const RARITY = {
-  common: { e: "⚪", n: "Common" },
-  uncommon: { e: "🟢", n: "Uncommon" },
-  rare: { e: "🔵", n: "Rare" },
-  epic: { e: "🟣", n: "Epic" },
-  legendary: { e: "🟠", n: "Legendary" },
-  mythic: { e: "🔴", n: "Mythic" },
+  common: { e: "<:common:1566144745128853624>", n: "Common" },
+  uncommon: { e: "<:uncommon:1566145261687017543>", n: "Uncommon" },
+  rare: { e: "<:rare:1566145420030378064>", n: "Rare" },
+  epic: { e: "<:epic:1566145643154645013>", n: "Epic" },
+  legendary: { e: "<:legendary:1566145716060164196>", n: "Legendary" },
+  mythic: { e: "<:mythic:1566145790861123674>", n: "Mythic" },
+  secret: { e: "❔", n: "Secret" },
+  trash: { e: "🗑️", n: "Trash" },
 };
 
 export const ITEMS = [
@@ -131,7 +134,9 @@ export function findItem(input) {
 // nên Discord và web luôn thấy đúng 4 món giống nhau mà không cần lưu vào database.
 
 const HOUR = 3600e3;
-const SHOP_SIZE = 4;
+const SHOP_SIZE = 4; // số món ngẫu nhiên mỗi giờ
+// 2 món rẻ nhất luôn có mặt ở ô 1 và 2 để người chơi luôn có đồ để bắt đầu câu cá
+const FIXED_IDS = ["rod_dry_branch", "bait_bread"];
 
 function mulberry32(seed) {
   let a = seed >>> 0;
@@ -147,12 +152,13 @@ export function shopForHour(hour) {
   const rng = mulberry32(Math.imul(hour, 2654435761) ^ 0x4e455855); // "NEXU"
   for (let i = 0; i < 4; i++) rng(); // bỏ vài số đầu cho các giờ liền kề khác nhau rõ rệt
   // Có thể trùng lặp vì mỗi ô được chọn độc lập
-  return Array.from({ length: SHOP_SIZE }, (_, i) => ({ slot: i + 1, item: ITEMS[Math.floor(rng() * ITEMS.length)] }));
+  return Array.from({ length: SHOP_SIZE }, (_, i) => ({ slot: FIXED_IDS.length + i + 1, item: ITEMS[Math.floor(rng() * ITEMS.length)], fixed: false }));
 }
 
 export function currentShop(now = Date.now()) {
   const hour = Math.floor(now / HOUR);
-  return { hour, refreshAt: (hour + 1) * HOUR, slots: shopForHour(hour) };
+  const fixed = FIXED_IDS.map((id, i) => ({ slot: i + 1, item: ITEM_BY_ID[id], fixed: true }));
+  return { hour, refreshAt: (hour + 1) * HOUR, slots: [...fixed, ...shopForHour(hour)] };
 }
 
 // ---------- Hiển thị ----------
