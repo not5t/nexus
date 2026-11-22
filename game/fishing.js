@@ -4,7 +4,7 @@
 import { ITEM_BY_ID, RARITY, findItem, normalize } from "./items.js";
 import {
   FISH_CFG, SHOW_ORDER, SPECIES, SPECIES_BY_ID, TENTACLE,
-  baitCandidates, currentPond, fishValue, fmtKg, fmtNum, priceLabel, rollCast, speciesIcon, speciesName,
+  baitCandidates, currentPond, fishValue, fmtKg, fmtNum, priceLabel, rollCast, sizeClass, speciesIcon, speciesName,
 } from "./fish.js";
 
 // ---------- Bảng dữ liệu (nối vào ensureSchema) ----------
@@ -413,7 +413,8 @@ export async function cauca(db, me, rodIn, baitIn, guildId) {
     if (prev[sp.id] && first.part !== "tentacle" && rec > prev[sp.id].record_g) extra.push("🏆 **Kỷ lục cân nặng mới** cho loài này!");
     if (lost) extra.push(`🎒 Túi cá đầy nên bạn đã để lỡ ${lost} con!`);
     const nameLine = first.part === "tentacle" ? `**${TENTACLE.name} ${TENTACLE.icon}** (từ ${sp.name})` : `**${sp.name} ${sp.icon}**`;
-    return card("🎣 KẾT QUẢ CÂU CÁ", `${nameLine}\n${rarityLine(sp.rarity)}${[notes, ...extra].filter(Boolean).length ? "\n\n" + [notes, ...extra].filter(Boolean).join("\n") : ""}${broke}`, {
+    const size = out.fishes.length === 1 && first.part !== "tentacle" ? sizeClass(sp.id, first.weightG) : null;
+    return card("🎣 KẾT QUẢ CÂU CÁ", `${nameLine}\n${rarityLine(sp.rarity)}${size ? ` • 📏 ${size}` : ""}${[notes, ...extra].filter(Boolean).length ? "\n\n" + [notes, ...extra].filter(Boolean).join("\n") : ""}${broke}`, {
       color,
       fields,
       footer: foot,

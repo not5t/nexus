@@ -136,27 +136,74 @@ export function fmtKg(g) {
 
 // ---------- Cân bằng kinh tế qua phân bố cân nặng ----------
 // Giá/kg, cân nặng tối đa và công thức "cân nặng × giá/kg" đều giữ nguyên. Thứ được cân bằng là
-// phân bố cân nặng khi câu: cá hiếm hầu hết nhẹ hơn nhiều so với mức tối đa, còn cân nặng tiệm cận mức tối đa
-// (kỷ lục, "jackpot") thì rất hiếm. Nhờ đó giá trị trung bình của mỗi nhóm hiếm nằm ở mức dưới đây
-// dù giá/kg của từng loài chênh lệch rất nhiều.
+// phân bố cân nặng khi câu. Cá hiếm theo giá của bạn có "giá trị tối đa" rất lớn (ví dụ Ice Worm 800.000),
+// nên để giá trị trung bình mỗi nhóm hợp lý, cân nặng thường gặp phải nhỏ hơn nhiều so với mức tối đa.
+// Để cân nặng không bị lặp lại, mỗi loài dùng phân bố log-normal: trải rộng qua nhiều bậc độ lớn,
+// phần lớn là cá nhỏ, thỉnh thoảng ra cá lớn gấp hàng chục, hàng trăm lần trung bình ("jackpot").
 export const TARGET_EV = { rare: 350, epic: 1500, legendary: 6000, mythic: 20000, secret: 600 };
+const SIGMA = 2; // độ trải của phân bố: càng lớn càng nhiều cá "khủng" hiếm gặp
+const MIN_KG = 0.001; // nhẹ nhất 1 gam
+
+// Giá trị kỳ vọng của min(max, e^(mu + SIGMA·Z)) với Z chuẩn: tính bằng tích phân số trên lưới
+const Z_GRID = (() => {
+  const out = [];
+  for (let z = -8; z <= 8; z += 0.02) out.push([z, Math.exp((-z * z) / 2) * 0.02 / Math.sqrt(2 * Math.PI)]);
+  return out;
+})();
+function lnMean(mu, maxKg) {
+  let m = 0;
+  for (const [z, w] of Z_GRID) m += w * Math.min(maxKg, Math.max(MIN_KG, Math.exp(mu + SIGMA * z)));
+  return m;
+}
 
 function weightModel(s) {
-  const naturalSkew = s.maxKg <= 2 ? 1.5 : 3; // loài nhỏ ít lệch hơn nên cân nặng đa dạng hơn
+  const naturalSkew = s.maxKg <= 2 ? 1.5 : 3; // loài nhỏ, giá thấp: phân bố tự nhiên đã đủ
   const naturalMean = 0.03 + 0.97 / (naturalSkew + 1);
   const maxValue = (s.price * s.maxKg) / s.unit; // giá trị khi bắt đúng cân nặng tối đa
   const target = TARGET_EV[s.rarity];
   const want = target && maxValue > 0 ? target / maxValue : naturalMean;
-  if (want >= naturalMean) return { floor: 0.03, skew: naturalSkew }; // tự nhiên đã đủ thấp
-  const floor = want / 4;
-  return { floor, skew: (1 - floor) / (0.75 * want) - 1 };
+  if (want >= naturalMean) return { type: "natural", skew: naturalSkew };
+  // Tìm mu sao cho cân nặng trung bình = want × cân nặng tối đa (chia đôi liên tục)
+  const meanKg = want * s.maxKg;
+  let lo = Math.log(MIN_KG) - 10, hi = Math.log(s.maxKg) + 10;
+  for (let i = 0; i < 60; i++) {
+    const mid = (lo + hi) / 2;
+    if (lnMean(mid, s.maxKg) < meanKg) lo = mid;
+    else hi = mid;
+  }
+  return { type: "lognormal", mu: (lo + hi) / 2 };
 }
 const WEIGHT_MODEL = Object.fromEntries(SPECIES.map(s => [s.id, weightModel(s)]));
 
 function rollWeightG(s, rng) {
-  const { floor, skew } = WEIGHT_MODEL[s.id];
+  const m = WEIGHT_MODEL[s.id];
   const maxG = Math.round(s.maxKg * 1000);
-  return Math.max(1, Math.round(maxG * (floor + (1 - floor) * Math.pow(rng(), skew))));
+  if (m.type === "natural") return Math.max(1, Math.round(maxG * (0.03 + 0.97 * Math.pow(rng(), m.skew))));
+  const z = Math.sqrt(-2 * Math.log(1 - rng())) * Math.cos(2 * Math.PI * rng()); // Box-Muller
+  const kg = Math.min(s.maxKg, Math.max(MIN_KG, Math.exp(m.mu + SIGMA * z)));
+  return Math.max(1, Math.round(kg * 1000));
+}
+
+// Nhãn cỡ cá theo vị trí của cân nặng trong phân bố của chính loài đó (hiện ở kết quả câu)
+function normCdf(x) {
+  // xấp xỉ Abramowitz-Stegun cho hàm phân phối chuẩn
+  const t = 1 / (1 + 0.2316419 * Math.abs(x));
+  const d = 0.3989423 * Math.exp((-x * x) / 2);
+  const p = d * t * (0.3193815 + t * (-0.3565638 + t * (1.781478 + t * (-1.821256 + t * 1.330274))));
+  return x > 0 ? 1 - p : p;
+}
+export function sizeClass(speciesId, weightG) {
+  const s = SPECIES_BY_ID[speciesId];
+  if (!s || s.rarity === "trash" || weightG <= 0) return null;
+  const m = WEIGHT_MODEL[speciesId];
+  let q;
+  if (m.type === "lognormal") q = normCdf((Math.log(Math.max(weightG / 1000, MIN_KG)) - m.mu) / SIGMA);
+  else q = Math.pow(Math.min(1, Math.max(0, (weightG / (s.maxKg * 1000) - 0.03) / 0.97)), 1 / m.skew);
+  if (q < 0.2) return "Con non";
+  if (q < 0.8) return "Trưởng thành";
+  if (q < 0.97) return "To lớn";
+  if (q < 0.998) return "Khổng lồ";
+  return "Siêu khủng 🏆";
 }
 
 // ---------- Hồ cá (đổi mỗi 20 phút, mỗi server một hồ) ----------
