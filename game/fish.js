@@ -147,7 +147,7 @@ const MIN_KG = 0.001; // nhẹ nhất 1 gam
 // Giá trị kỳ vọng của min(max, e^(mu + SIGMA·Z)) với Z chuẩn: tính bằng tích phân số trên lưới
 const Z_GRID = (() => {
   const out = [];
-  for (let z = -8; z <= 8; z += 0.02) out.push([z, Math.exp((-z * z) / 2) * 0.02 / Math.sqrt(2 * Math.PI)]);
+  for (let z = -7; z <= 7; z += 0.05) out.push([z, (Math.exp((-z * z) / 2) * 0.05) / Math.sqrt(2 * Math.PI)]);
   return out;
 })();
 function lnMean(mu, maxKg) {
@@ -166,17 +166,19 @@ function weightModel(s) {
   // Tìm mu sao cho cân nặng trung bình = want × cân nặng tối đa (chia đôi liên tục)
   const meanKg = want * s.maxKg;
   let lo = Math.log(MIN_KG) - 10, hi = Math.log(s.maxKg) + 10;
-  for (let i = 0; i < 60; i++) {
+  for (let i = 0; i < 45; i++) {
     const mid = (lo + hi) / 2;
     if (lnMean(mid, s.maxKg) < meanKg) lo = mid;
     else hi = mid;
   }
   return { type: "lognormal", mu: (lo + hi) / 2 };
 }
-const WEIGHT_MODEL = Object.fromEntries(SPECIES.map(s => [s.id, weightModel(s)]));
+// Tính khi cần (lần đầu dùng loài đó) rồi nhớ lại, để Worker khởi động nhanh và không tốn CPU lúc khởi động
+const modelCache = {};
+const modelOf = id => (modelCache[id] ||= weightModel(SPECIES_BY_ID[id]));
 
 function rollWeightG(s, rng) {
-  const m = WEIGHT_MODEL[s.id];
+  const m = modelOf(s.id);
   const maxG = Math.round(s.maxKg * 1000);
   if (m.type === "natural") return Math.max(1, Math.round(maxG * (0.03 + 0.97 * Math.pow(rng(), m.skew))));
   const z = Math.sqrt(-2 * Math.log(1 - rng())) * Math.cos(2 * Math.PI * rng()); // Box-Muller
@@ -195,7 +197,7 @@ function normCdf(x) {
 export function sizeClass(speciesId, weightG) {
   const s = SPECIES_BY_ID[speciesId];
   if (!s || s.rarity === "trash" || weightG <= 0) return null;
-  const m = WEIGHT_MODEL[speciesId];
+  const m = modelOf(speciesId);
   let q;
   if (m.type === "lognormal") q = normCdf((Math.log(Math.max(weightG / 1000, MIN_KG)) - m.mu) / SIGMA);
   else q = Math.pow(Math.min(1, Math.max(0, (weightG / (s.maxKg * 1000) - 0.03) / 0.97)), 1 / m.skew);
